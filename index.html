@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, shrink-to-fit=no">
+    <title>Теннис Корт — запись на игру</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="theme-color" content="#2ecc71">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="light">
+    <div class="app-header">
+        <div class="title-section">
+            <h1>🎾 Теннис-корт</h1>
+            <p>запись на парную игру</p>
+        </div>
+        <div class="controls">
+            <button class="btn-icon" id="themeToggleBtn">🌙 Тема</button>
+            <button class="btn-icon" id="adminToggleBtn">⚙️ Настройки</button>
+            <button class="btn-icon" id="myBookingsToggleBtn" style="background:#8b5cf6;">📋 Мои записи <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">0</span></button>
+        </div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <div class="admin-row">
+            <span class="admin-label">⏱️ Шаг / длительность</span>
+            <select id="stepSelect">
+                <option value="30">30 мин</option>
+                <option value="60" selected>1 час</option>
+            </select>
+            <select id="durationSelect">
+                <option value="60" selected>1 час (матч)</option>
+                <option value="90">1.5 часа</option>
+                <option value="120">2 часа</option>
+            </select>
+        </div>
+        <div class="admin-row" style="flex-direction: column; align-items: flex-start;">
+            <span class="admin-label">📅 Дни недели (вкл/выкл и часы)</span>
+            <div class="day-toggles" id="dayTogglesContainer"></div>
+        </div>
+        <div class="admin-row">
+            <button id="refreshCalendarBtn" style="background: #10b981; border:none; padding:8px 22px; border-radius:40px; font-weight:600; cursor:pointer;">🔄 Обновить сетку</button>
+        </div>
+        <small>🟢 Свободно (2 места) · 🟠 1 игрок · 🔴 Полная запись</small>
+    </div>
+
+    <div class="my-bookings-section" id="myBookingsSection" style="display: flex;">
+        <h3 style="font-size:1.1rem; margin-bottom:14px;">📋 Мои записи на корт</h3>
+        <div id="myBookingsList">Нет активных броней</div>
+    </div>
+
+    <div class="slots-list" id="slotsContainer"></div>
+
+    <div id="toastMsg" class="toast">✅ Готово</div>
+
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('SW registered:', reg))
+                .catch(err => console.log('SW error:', err));
+        }
+    </script>
+</body>
+</html>
