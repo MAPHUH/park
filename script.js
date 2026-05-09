@@ -199,6 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { toast.style.opacity = '0'; }, duration);
     }
     
+    // ===== ВИБРАЦИЯ =====
+    function vibrate(duration) {
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(duration);
+        }
+    }
+    
     // ===== 7. ОТМЕНА БРОНИРОВАНИЯ (НОВАЯ ВЕРСИЯ) =====
     function cancelBooking(dayIndex, dateStr, startMin) {
         const booking = getUserBookingForSlot(dayIndex, dateStr, startMin);
@@ -212,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${minutesToTime(startMin)} — ${minutesToTime(startMin + stepMinutes)}`)) {
             // Удаляем бронирование
             bookings = bookings.filter(b => b.id !== booking.id);
+            vibrate(200);
             showToast("❌ Запись отменена", 1200);
             
             // Обновляем интерфейс
@@ -227,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Проверяем, не записан ли уже пользователь на этот слот
         const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (existingUserBooking) {
+            vibrate(200);
             showToast('❌ Вы уже записаны на этот слот', 1300);
             return;
         }
@@ -237,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         
         if (existingBookings.length >= 2) {
+            vibrate(200);
             showToast('⚠️ Уже 2 игрока, запись невозможна', 1300);
             return;
         }
@@ -261,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 startTime: startTime,
                 endTime: endTime,
             });
+            vibrate(50);
             showToast(`✅ Запись добавлена!`, 1300);
             
             // Обновляем интерфейс
@@ -298,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Проверка на пустой результат при фильтрации
         if (filterMode === 'my' && slots.length === 0) {
+            vibrate(200);
             showToast('📭 У вас нет активных записей', 1500);
             container.innerHTML = `<div style="text-align:center; padding:40px;">✨ У вас нет записей. Нажмите "Все записи" чтобы посмотреть слоты.</div>`;
             return;
@@ -393,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (status === 'full') {
+                    vibrate(200);
                     showToast('❌ Слот полностью занят', 1200);
                     return;
                 }
