@@ -462,9 +462,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===== 12. ТЕМА =====
-    function initTheme() {
+        function initTheme() {
         const savedTheme = localStorage.getItem('tennis_theme');
         const themeBtn = document.getElementById('themeToggleBtn');
+        
+        // Функция для обновления цвета статус-бара
+        function updateThemeColor() {
+            const isDark = document.body.classList.contains('dark');
+            const themeColor = isDark ? '#0a0f1c' : '#f2f5f9';
+            const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+            if (metaThemeColor) {
+                metaThemeColor.setAttribute('content', themeColor);
+            }
+        }
         
         if (savedTheme === 'dark') {
             document.body.classList.remove('light');
@@ -474,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('light');
             themeBtn.innerText = '🌙 Темная';
         }
+        updateThemeColor(); // Устанавливаем начальный цвет
         
         themeBtn.addEventListener('click', () => {
             if (document.body.classList.contains('light')) {
@@ -487,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('tennis_theme', 'light');
                 themeBtn.innerText = '🌙 Темная';
             }
+            updateThemeColor(); // Обновляем цвет после переключения
         });
     }
     

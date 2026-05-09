@@ -35,6 +35,8 @@ body {
     
     /* Отступы: сверху 20px, по бокам 16px, снизу 8px */
     padding: 20px 16px 8px;
+
+    padding-top: env(safe-area-inset-top, 20px);
     
     /* Минимальная высота на весь экран */
     min-height: 100vh;
