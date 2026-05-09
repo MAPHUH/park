@@ -1,94 +1,41 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <!-- ===================================================================
-         ТЕННИС КОРТ — PWA ПРИЛОЖЕНИЕ ДЛЯ ЗАПИСИ НА ИГРУ
-         Версия: 1.0
-         Описание: Устанавливаемое мобильное приложение для записи на теннисный корт
-                   Поддерживает тёмную тему, офлайн-режим через Service Worker
-         =================================================================== -->
-    
     <meta charset="UTF-8">
-    
-    <!-- МЕТА-ТЕГИ ДЛЯ МОБИЛЬНОЙ ОПТИМИЗАЦИИ -->
-    <!-- viewport-fit=cover — для iPhone X и новее (область под "чёлку") -->
-    <!-- user-scalable=no — запрещаем масштабирование (требование из промта) -->
-    <!-- shrink-to-fit=no — для старых iOS Safari -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, shrink-to-fit=no">
-    
-    <!-- Заголовок приложения (отображается в браузере и на домашнем экране) -->
     <title>Теннис Корт — запись на игру</title>
-    
-    <!-- ПОДКЛЮЧАЕМ ВНЕШНИЙ CSS ФАЙЛ (все стили вынесены отдельно) -->
     <link rel="stylesheet" href="style.css">
-    
-    <!-- PWA: МАНИФЕСТ — описывает, как приложение будет выглядеть при установке -->
-    <!-- manifest.json содержит имя, иконки, тему, стартовый URL -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- PWA: ИКОНКИ ДЛЯ APPLE DEVICES (без них Safari не позволит установить) -->
     <link rel="apple-touch-icon" href="icons/icon-192.png">
-    
-    <!-- PWA: ЦВЕТ ТЕМЫ ДЛЯ СТРОКИ СОСТОЯНИЯ (на мобилках) -->
     <meta name="theme-color" content="#2ecc71">
-    
-    <!-- PWA: РЕЖИМ ОТОБРАЖЕНИЯ ДЛЯ IOS (как самостоятельное приложение) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
-    <!-- ===== ВАЖНО: ФИЗИЧЕСКИЙ ЗАПРЕТ ГОРИЗОНТАЛЬНОГО СКРОЛЛА (дубль из CSS) ===== -->
     <style>
-        /* Дополнительная защита от горизонтальной прокрутки прямо в head */
         html, body {
             max-width: 100%;
             overflow-x: hidden;
         }
     </style>
 </head>
-<!-- 
-    Класс body: по умолчанию 'light' (светлая тема)
-    При загрузке JS проверит localStorage и применит тёмную тему если нужно
--->
 <body class="light">
     
-    <!-- ===================================================================
-         ШАПКА ПРИЛОЖЕНИЯ
-         Содержит заголовок, подзаголовок и кнопки управления
-         =================================================================== -->
     <div class="app-header">
         <div class="title-section">
             <h1>🎾 Теннис-корт</h1>
             <p>запись на парную игру</p>
         </div>
         <div class="controls">
-            <!-- Кнопка переключения темы (светлая/тёмная) -->
             <button class="btn-icon" id="themeToggleBtn">🌙 Тема</button>
-            
-            <!-- Кнопка открытия/закрытия админ-панели -->
             <button class="btn-icon" id="adminToggleBtn">⚙️ Настройки</button>
-            
-            <!-- 
-                Кнопка "Мои записи" с бейджем-счётчиком
-                Цифра показывает количество активных бронирований
-                При клике скрывает/показывает блок с записями
-            -->
             <button class="btn-icon" id="myBookingsToggleBtn" style="background:#8b5cf6;">
                 📋 Мои записи 
                 <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">0</span>
             </button>
         </div>
     </div>
-    
-    <!-- ===================================================================
-         АДМИН-ПАНЕЛЬ (СКРЫТА ПО УМОЛЧАНИЮ)
-         Открывается кнопкой "Настройки" (⚙️)
-         Позволяет настраивать:
-           - шаг сетки (30 или 60 минут)
-           - длительность слота (1 ч, 1.5 ч, 2 ч)
-           - дни недели: вкл/выкл и часы работы
-         =================================================================== -->
+
+    <!-- АДМИН-ПАНЕЛЬ -->
     <div class="admin-panel" id="adminPanel">
-        <!-- Ряд: настройки шага и длительности -->
         <div class="admin-row">
             <span class="admin-label">⏱️ Шаг / длительность</span>
             <select id="stepSelect">
@@ -101,62 +48,27 @@
                 <option value="120">2 часа</option>
             </select>
         </div>
-        
-        <!-- Ряд: настройка дней недели (динамически заполняется JS) -->
         <div class="admin-row" style="flex-direction: column; align-items: flex-start;">
             <span class="admin-label">📅 Дни недели (вкл/выкл и часы)</span>
             <div class="day-toggles" id="dayTogglesContainer"></div>
         </div>
-        
-        <!-- Ряд: кнопка принудительного обновления -->
         <div class="admin-row">
             <button id="refreshCalendarBtn" style="background: #10b981; border:none; padding:8px 22px; border-radius:40px; font-weight:600; cursor:pointer;">🔄 Обновить сетку</button>
         </div>
-        
-        <!-- Легенда цветов статусов слотов -->
         <small>🟢 Свободно (2 места) · 🟠 1 игрок · 🔴 Полная запись</small>
     </div>
-    
-    <!-- ===================================================================
-         СЕКЦИЯ "МОИ ЗАПИСИ"
-         Показывает все активные бронирования пользователя
-         Изначально видима, можно скрыть кнопкой "Мои записи"
-         =================================================================== -->
-    <div class="my-bookings-section" id="myBookingsSection">
-        <h3 style="font-size:1.1rem; margin-bottom:14px;">📋 Мои записи на корт</h3>
-        <!-- Контейнер, куда JS будет вставлять список записей -->
-        <div id="myBookingsList">Нет активных броней</div>
-    </div>
-    
-    <!-- ===================================================================
-         СПИСОК ВСЕХ СЛОТОВ (КАРТОЧКИ)
-         Основной контент приложения — динамически заполняется JS
-         =================================================================== -->
+
+    <!-- СПИСОК КАРТОЧЕК (теперь здесь все слоты с кнопками отмены) -->
     <div class="slots-list" id="slotsContainer"></div>
-    
-    <!-- ===================================================================
-         TOAST-УВЕДОМЛЕНИЕ (ВСПЛЫВАЮЩИЕ СООБЩЕНИЯ)
-         Показывается временно снизу экрана и исчезает
-         =================================================================== -->
+
     <div id="toastMsg" class="toast">✅ Готово</div>
     
-    <!-- ===================================================================
-         ПОДКЛЮЧЕНИЕ ОСНОВНОГО JAVASCRIPT ФАЙЛА
-         Вся логика приложения вынесена в script.js
-         =================================================================== -->
     <script src="script.js"></script>
     
-    <!-- ===================================================================
-         РЕГИСТРАЦИЯ SERVICE WORKER (PWA)
-         Обеспечивает установку приложения, кэширование и автообновление
-         Service Worker файл: sw.js (должен лежать в корне проекта)
-         =================================================================== -->
+    <!-- Service Worker регистрация -->
     <script>
-        // Проверяем, поддерживает ли браузер Service Workers
         if ('serviceWorker' in navigator) {
-            // Функция для показа уведомлений через toast (если функция существует)
             function notifyUpdate(msg) {
-                // Пытаемся вызвать showToast из основного скрипта
                 if (typeof showToast === 'function') {
                     showToast(msg, 2000);
                 } else {
@@ -164,35 +76,23 @@
                 }
             }
             
-            // Регистрируем Service Worker
             navigator.serviceWorker.register('sw.js')
                 .then(registration => {
-                    console.log('✅ Service Worker зарегистрирован, scope:', registration.scope);
-                    
-                    // Принудительно проверяем обновления при регистрации
+                    console.log('✅ Service Worker зарегистрирован');
                     registration.update();
-                    
-                    // Автоматическая проверка обновлений каждые 60 секунд (требование из промта)
                     setInterval(() => {
                         registration.update();
-                        console.log('🔄 Проверка обновлений Service Worker...');
+                        console.log('🔄 Проверка обновлений...');
                     }, 60000);
                 })
-                .catch(err => {
-                    console.log('❌ Ошибка регистрации Service Worker:', err);
-                });
+                .catch(err => console.log('❌ SW error:', err));
             
-            // СЛУШАЕМ СОБЫТИЕ controllerchange — когда новый SW активирован
-            // При обнаружении новой версии — перезагружаем страницу (требование из промта)
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                console.log('🔄 Обнаружена новая версия приложения, перезагрузка...');
+                console.log('🔄 Новая версия, перезагрузка...');
                 notifyUpdate('🔄 Новая версия! Обновляем...');
                 setTimeout(() => window.location.reload(), 1500);
             });
-        } else {
-            console.log('⚠️ Service Worker не поддерживается этим браузером');
         }
     </script>
-    
 </body>
 </html>

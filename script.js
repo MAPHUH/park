@@ -1,138 +1,73 @@
 /* ==========================================================================
    ТЕННИС КОРТ — ОСНОВНАЯ ЛОГИКА (script.js)
-   Версия: 1.0
-   Описание: PWA приложение для записи на теннисный корт
-             Управление слотами, бронированиями, админ-панелью, темами
+   Версия: 2.0 — с фильтром "Мои записи" и кнопкой отмены в карточке
    ========================================================================== */
 
-// ==========================================================================
-// 1. ЗАПУСК ПРИЛОЖЕНИЯ ПОСЛЕ ПОЛНОЙ ЗАГРУЗКИ DOM
-// ==========================================================================
-// Используем DOMContentLoaded — событие, когда HTML полностью загружен и построен
-// Это гарантирует, что все элементы существуют до того, как мы начнём с ними работать
+// ===== 1. ЗАПУСК ПРИЛОЖЕНИЯ =====
 document.addEventListener('DOMContentLoaded', () => {
     
-    // ======================================================================
-    // 2. ВСПОМОГАТЕЛЬНЫЕ ДАННЫЕ И КОНСТАНТЫ
-    // ======================================================================
-    
-    // Названия дней недели в именительном падеже (для отображения)
+    // ===== 2. КОНСТАНТЫ И ДАННЫЕ =====
     const daysOfWeekFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-    
-    // Названия месяцев в родительном падеже (для красивой даты: "04 мая 2026")
     const monthNamesGenitive = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
     
-    // ======================================================================
-    // 3. НАСТРОЙКИ РАБОТЫ КОРТА (ДНИ НЕДЕЛИ, ВРЕМЯ)
-    // ======================================================================
-    // daySettings — объект, где ключ = номер дня недели (0=Воскресенье, 1=Понедельник...)
-    // Каждый день содержит:
-    //   - active: работает ли корт в этот день (true/false)
-    //   - greenStart: время начала работы (строка "HH:MM")
-    //   - greenEnd: время окончания работы (строка "HH:MM")
+    // Настройки работы корта
     let daySettings = {
-        0: { active: false, greenStart: "10:00", greenEnd: "18:00" },  // Воскресенье — выходной
-        1: { active: true,  greenStart: "09:00", greenEnd: "21:00" },  // Понедельник
-        2: { active: true,  greenStart: "09:00", greenEnd: "21:00" },  // Вторник
-        3: { active: true,  greenStart: "09:00", greenEnd: "21:00" },  // Среда
-        4: { active: true,  greenStart: "09:00", greenEnd: "21:00" },  // Четверг
-        5: { active: true,  greenStart: "09:00", greenEnd: "20:00" },  // Пятница
-        6: { active: false, greenStart: "12:00", greenEnd: "16:00" }    // Суббота — выходной
+        0: { active: false, greenStart: "10:00", greenEnd: "18:00" },
+        1: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+        2: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+        3: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+        4: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+        5: { active: true,  greenStart: "09:00", greenEnd: "20:00" },
+        6: { active: false, greenStart: "12:00", greenEnd: "16:00" }
     };
     
-    // ======================================================================
-    // 4. ХРАНИЛИЩЕ БРОНИРОВАНИЙ
-    // ======================================================================
-    // bookings — массив, хранит все записи пользователей
-    // Каждое бронирование содержит:
-    //   - id: уникальный идентификатор (используем timestamp + случайное число)
-    //   - dayIndex: номер дня недели (0-6)
-    //   - dateStr: дата в формате YYYY-MM-DD (для сравнения)
-    //   - startMin: время начала в минутах от полуночи (0-1439)
-    //   - endMin: время окончания в минутах от полуночи
-    //   - startTime: строка времени начала "HH:MM"
-    //   - endTime: строка времени окончания "HH:MM"
+    // Массив бронирований (каждый пользователь — это объект с уникальным ID)
     let bookings = [];
     
-    // ======================================================================
-    // 5. НАСТРОЙКИ СЕТКИ РАСПИСАНИЯ (ИЗ АДМИН-ПАНЕЛИ)
-    // ======================================================================
-    let stepMinutes = 60;        // Шаг сетки в минутах (30 или 60)
-    let defaultDuration = 60;    // Длительность слота в минутах (60, 90, 120)
+    // Настройки сетки
+    let stepMinutes = 60;
+    let defaultDuration = 60;
     
-    // ======================================================================
-    // 6. УТИЛИТЫ — ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ СО ВРЕМЕНЕМ
-    // ======================================================================
+    // ===== НОВОЕ: СОСТОЯНИЕ ФИЛЬТРА =====
+    // filterMode = 'all' → показываем все слоты
+    // filterMode = 'my'  → показываем только слоты, где есть запись текущего пользователя
+    let filterMode = 'all';  // 'all' или 'my'
     
-    /**
-     * Преобразует строку времени в минуты от полуночи
-     * @param {string} timeStr - время в формате "HH:MM" (например "14:30")
-     * @returns {number} - количество минут (0-1439)
-     * 
-     * Пример: "14:30" → 14*60 + 30 = 870 минут
-     */
+    // ===== НОВОЕ: ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ =====
+    // В реальном приложении здесь может быть ID из localStorage или от сервера
+    // Для демо используем фиксированный ID, но в будущем можно сделать выбор игрока
+    let currentUserId = 'user_001';
+    
+    // ===== 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
     function timeToMinutes(timeStr) {
         let [h, m] = timeStr.split(':').map(Number);
         return h * 60 + (m || 0);
     }
     
-    /**
-     * Преобразует минуты от полуночи в строку времени
-     * @param {number} min - минуты от полуночи (0-1439)
-     * @returns {string} - время в формате "HH:MM" с ведущими нулями
-     * 
-     * Пример: 870 → "14:30"
-     */
     function minutesToTime(min) {
         let h = Math.floor(min / 60);
         let m = min % 60;
         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     }
     
-    /**
-     * Форматирует дату в красивый читаемый вид
-     * @param {Date} dateObj - объект JavaScript Date
-     * @param {string} dayFullName - полное название дня недели
-     * @returns {string} - отформатированная дата (пример: "Понедельник, 04 мая 2026")
-     * 
-     * Особенности: число всегда с ведущим нулём, месяц в родительном падеже
-     */
     function formatFullDate(dateObj, dayFullName) {
         let dayNum = dateObj.getDate();
-        let formattedDayNum = dayNum < 10 ? '0' + dayNum : dayNum;  // Добавляем ноль если нужно
+        let formattedDayNum = dayNum < 10 ? '0' + dayNum : dayNum;
         let monthName = monthNamesGenitive[dateObj.getMonth()];
         let year = dateObj.getFullYear();
         return `${dayFullName}, ${formattedDayNum} ${monthName} ${year}`;
     }
     
-    // ======================================================================
-    // 7. ГЕНЕРАЦИЯ ДНЕЙ НА БЛИЖАЙШУЮ НЕДЕЛЮ
-    // ======================================================================
-    
-    /**
-     * Возвращает массив объектов для следующих 7 дней (начиная с сегодня)
-     * @returns {Array} - массив объектов с информацией о каждом дне
-     * 
-     * Каждый объект содержит:
-     *   - date: объект Date
-     *   - dayIndex: номер дня недели (0-6)
-     *   - fullName: название дня на русском
-     *   - dateStr: дата в формате YYYY-MM-DD (для сравнений)
-     *   - displayDate: красивая отформатированная дата
-     */
     function getNext7Days() {
         let today = new Date();
         let days = [];
-        
         for (let i = 0; i < 7; i++) {
             let d = new Date();
-            d.setDate(today.getDate() + i);  // Прибавляем i дней к сегодняшней дате
-            
-            let dayIndex = d.getDay();        // 0 = Воскресенье, 1 = Понедельник...
-            let fullDateStr = d.toISOString().slice(0, 10);  // "2026-05-09"
+            d.setDate(today.getDate() + i);
+            let dayIndex = d.getDay();
+            let fullDateStr = d.toISOString().slice(0, 10);
             let fullDayName = daysOfWeekFull[dayIndex];
             let formattedDateStr = formatFullDate(d, fullDayName);
-            
             days.push({
                 date: d,
                 dayIndex: dayIndex,
@@ -144,58 +79,63 @@ document.addEventListener('DOMContentLoaded', () => {
         return days;
     }
     
-    // ======================================================================
-    // 8. ПРОВЕРКА, ВХОДИТ ЛИ ВРЕМЯ В РАБОЧИЕ ЧАСЫ КОРТА
-    // ======================================================================
-    
-    /**
-     * Проверяет, находится ли указанное время в рабочей зоне для конкретного дня
-     * @param {number} dayIndex - номер дня недели (0-6)
-     * @param {number} minuteOfDay - минута дня (0-1439)
-     * @returns {boolean} - true если время в рабочей зоне, иначе false
-     */
     function isInGreenZone(dayIndex, minuteOfDay) {
         let sett = daySettings[dayIndex];
-        if (!sett.active) return false;  // День не работает — сразу false
-        
+        if (!sett.active) return false;
         let startMin = timeToMinutes(sett.greenStart);
         let endMin = timeToMinutes(sett.greenEnd);
-        
-        // Время должно быть >= начала и < конца рабочего дня
         return (minuteOfDay >= startMin && minuteOfDay < endMin);
     }
     
-    // ======================================================================
-    // 9. ГЕНЕРАЦИЯ СЛОТОВ ДЛЯ КОНКРЕТНОГО ДНЯ
-    // ======================================================================
+    // ===== 4. НОВАЯ ФУНКЦИЯ: ПРОВЕРКА, ЗАПИСАН ЛИ ПОЛЬЗОВАТЕЛЬ НА СЛОТ =====
+    /**
+     * Проверяет, есть ли у текущего пользователя бронирование на конкретный слот
+     * @param {number} dayIndex - номер дня недели
+     * @param {string} dateStr - дата в формате YYYY-MM-DD
+     * @param {number} startMin - время начала в минутах
+     * @returns {object|null} - объект бронирования или null
+     */
+    function getUserBookingForSlot(dayIndex, dateStr, startMin) {
+        return bookings.find(b => 
+            b.userId === currentUserId &&
+            b.dayIndex === dayIndex && 
+            b.dateStr === dateStr && 
+            b.startMin === startMin
+        );
+    }
     
     /**
-     * Создаёт все возможные слоты для заданного дня на основе настроек
-     * @param {Object} dayObj - объект дня из getNext7Days()
-     * @returns {Array} - массив слотов с их статусами
-     * 
-     * Каждый слот содержит:
-     *   - startMin: время начала в минутах
-     *   - endMin: время окончания в минутах
-     *   - startTime: строка времени начала
-     *   - endTime: строка времени окончания
-     *   - status: 'available' (свободно), 'partial' (1 игрок), 'full' (занято)
-     *   - bookedCount: количество бронирований (0, 1 или 2)
+     * Проверяет, может ли пользователь записаться на слот
+     * @param {number} dayIndex - номер дня недели
+     * @param {string} dateStr - дата в формате YYYY-MM-DD
+     * @param {number} startMin - время начала в минутах
+     * @returns {boolean} - true если может записаться
      */
+    function canUserBook(dayIndex, dateStr, startMin) {
+        // Нельзя записаться если уже записан
+        const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
+        if (existingUserBooking) return false;
+        
+        // Нельзя записаться если слот уже заполнен (2 игрока)
+        const slotBookings = bookings.filter(b => 
+            b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin
+        );
+        return slotBookings.length < 2;
+    }
+    
+    // ===== 5. ГЕНЕРАЦИЯ СЛОТОВ (С УЧЁТОМ ЗАПИСЕЙ ПОЛЬЗОВАТЕЛЯ) =====
     function getSlotsForDay(dayObj) {
         let slots = [];
-        let totalMinutes = 24 * 60;  // Всего минут в сутках = 1440
+        let totalMinutes = 24 * 60;
         
-        // Проходим по времени с шагом stepMinutes
         for (let t = 0; t < totalMinutes; t += stepMinutes) {
             let startMin = t;
             let endMin = Math.min(t + stepMinutes, totalMinutes);
             
-            // Пропускаем слоты вне рабочего времени корта
             if (!isInGreenZone(dayObj.dayIndex, startMin)) continue;
             if (endMin > totalMinutes) continue;
             
-            // Находим все бронирования, которые попадают в этот слот
+            // Получаем все бронирования на этот слот
             let slotBookings = bookings.filter(b => 
                 b.dayIndex === dayObj.dayIndex && 
                 b.dateStr === dayObj.dateStr && 
@@ -203,9 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
             );
             
             let bookedCount = slotBookings.length;
+            let isUserBooked = !!getUserBookingForSlot(dayObj.dayIndex, dayObj.dateStr, startMin);
+            
             let status = 'available';
-            if (bookedCount === 1) status = 'partial';   // 1 игрок — оранжевый
-            if (bookedCount >= 2) status = 'full';       // 2 игрока — красный
+            if (bookedCount === 1) status = 'partial';
+            if (bookedCount >= 2) status = 'full';
             
             slots.push({
                 startMin: startMin,
@@ -214,28 +156,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 endTime: minutesToTime(endMin),
                 status: status,
                 bookedCount: bookedCount,
+                isUserBooked: isUserBooked  // ← НОВОЕ: флаг, записан ли пользователь
             });
         }
         return slots;
     }
     
-    // ======================================================================
-    // 10. ПОЛУЧЕНИЕ ВСЕХ СЛОТОВ НА НЕДЕЛЮ
-    // ======================================================================
-    
-    /**
-     * Собирает все слоты для всех 7 дней и объединяет в один плоский массив
-     * @returns {Array} - все слоты недели с привязанной информацией о дне
-     */
     function getAllFlatSlots() {
         const weekDays = getNext7Days();
         let result = [];
-        
         for (let day of weekDays) {
             const daySlots = getSlotsForDay(day);
             for (let slot of daySlots) {
                 result.push({
-                    ...slot,                    // Копируем все поля слота
+                    ...slot,
                     dayIndex: day.dayIndex,
                     dateStr: day.dateStr,
                     displayDate: day.displayDate,
@@ -246,126 +180,63 @@ document.addEventListener('DOMContentLoaded', () => {
         return result;
     }
     
-    // ======================================================================
-    // 11. ГОЛОВНОЙ КОМПОНЕНТ — TOAST УВЕДОМЛЕНИЯ
-    // ======================================================================
+    // ===== НОВАЯ ФУНКЦИЯ: ФИЛЬТРАЦИЯ СЛОТОВ =====
+    function getFilteredSlots() {
+        const allSlots = getAllFlatSlots();
+        
+        if (filterMode === 'all') {
+            return allSlots;
+        } else { // filterMode === 'my'
+            return allSlots.filter(slot => slot.isUserBooked === true);
+        }
+    }
     
-    /**
-     * Показывает временное всплывающее сообщение внизу экрана
-     * @param {string} msg - текст сообщения
-     * @param {number} duration - время показа в миллисекундах (по умолчанию 1800)
-     */
+    // ===== 6. TOAST УВЕДОМЛЕНИЯ =====
     function showToast(msg, duration = 1800) {
         let toast = document.getElementById('toastMsg');
         toast.innerText = msg;
         toast.style.opacity = '1';
-        setTimeout(() => { 
-            toast.style.opacity = '0'; 
-        }, duration);
+        setTimeout(() => { toast.style.opacity = '0'; }, duration);
     }
     
-    // ======================================================================
-    // 12. ОБНОВЛЕНИЕ СЕКЦИИ "МОИ ЗАПИСИ" И СЧЁТЧИКА НА КНОПКЕ
-    // ======================================================================
-    
-    /**
-     * Отрисовывает список текущих бронирований пользователя
-     * Также обновляет цифровой бейдж на кнопке "Мои записи"
-     */
-    function renderMyBookings() {
-        const container = document.getElementById('myBookingsList');
-        if (!container) return;
-        
-        // ОБНОВЛЯЕМ СЧЁТЧИК НА КНОПКЕ — отображаем количество записей
-        const bookingsCountBadge = document.getElementById('bookingsCountBadge');
-        if (bookingsCountBadge) {
-            bookingsCountBadge.textContent = bookings.length;
-        }
-        
-        // Если нет записей — показываем пустое состояние
-        if (bookings.length === 0) {
-            container.innerHTML = '<div style="padding: 12px; text-align:center;">🎾 Нет активных записей. Нажмите на карточку.</div>';
-            return;
-        }
-        
-        // Сортируем записи: сначала по дате, потом по времени начала
-        let sorted = [...bookings].sort((a, b) => {
-            if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
-            return a.startMin - b.startMin;
-        });
-        
-        // Генерируем HTML для каждой записи
-        let html = '';
-        for (let b of sorted) {
-            let week = getNext7Days();
-            let dayMatch = week.find(d => d.dateStr === b.dateStr);
-            let niceDate = dayMatch ? dayMatch.displayDate : b.dateStr;
-            html += `
-                <div class="booking-item-mini">
-                    <span><strong>🎾 ${niceDate}</strong>  ${b.startTime} — ${b.endTime}</span>
-                    <button class="cancel-mini" data-id="${b.id}">Отменить</button>
-                </div>
-            `;
-        }
-        container.innerHTML = html;
-        
-        // Вешаем обработчики на кнопки отмены
-        document.querySelectorAll('.cancel-mini').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                let id = parseFloat(btn.dataset.id);
-                cancelBookingById(id);
-            });
-        });
-    }
-    
-    // ======================================================================
-    // 13. ОТМЕНА БРОНИРОВАНИЯ
-    // ======================================================================
-    
-    /**
-     * Отменяет бронирование по ID после подтверждения пользователя
-     * @param {number} bookingId - уникальный идентификатор бронирования
-     * @returns {boolean} - true если отмена успешна, false если пользователь отказался
-     */
-    function cancelBookingById(bookingId) {
-        let booking = bookings.find(b => b.id == bookingId);
+    // ===== 7. ОТМЕНА БРОНИРОВАНИЯ (НОВАЯ ВЕРСИЯ) =====
+    function cancelBooking(dayIndex, dateStr, startMin) {
+        const booking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (!booking) return false;
         
-        // Получаем красивую дату для отображения в подтверждении
+        // Получаем красивую дату для подтверждения
         let week = getNext7Days();
-        let dayInfo = week.find(d => d.dateStr === booking.dateStr);
-        let niceDate = dayInfo ? dayInfo.displayDate : booking.dateStr;
+        let dayInfo = week.find(d => d.dateStr === dateStr);
+        let niceDate = dayInfo ? dayInfo.displayDate : dateStr;
         
-        // Запрашиваем подтверждение отмены
-        if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${booking.startTime} — ${booking.endTime}`)) {
-            bookings = bookings.filter(b => b.id !== bookingId);
+        if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${minutesToTime(startMin)} — ${minutesToTime(startMin + stepMinutes)}`)) {
+            // Удаляем бронирование
+            bookings = bookings.filter(b => b.id !== booking.id);
             showToast("❌ Запись отменена", 1200);
-            renderCards();          // Перерисовываем все карточки слотов
-            renderMyBookings();     // Обновляем список записей
+            
+            // Обновляем интерфейс
+            renderCards();
+            updateBookingsCount();
             return true;
         }
         return false;
     }
     
-    // ======================================================================
-    // 14. СОЗДАНИЕ НОВОГО БРОНИРОВАНИЯ
-    // ======================================================================
-    
-    /**
-     * Обрабатывает запись пользователя на выбранный слот
-     * @param {number} dayIndex - номер дня недели
-     * @param {string} dateStr - дата в формате YYYY-MM-DD
-     * @param {number} startMin - время начала в минутах
-     * @param {number} endMin - время окончания в минутах
-     */
+    // ===== 8. СОЗДАНИЕ БРОНИРОВАНИЯ (С ЗАЩИТОЙ ОТ ДУБЛЕЙ) =====
     function handleBooking(dayIndex, dateStr, startMin, endMin) {
-        // Проверяем, сколько уже записей в этом слоте
-        let existing = bookings.filter(b => 
+        // Проверяем, не записан ли уже пользователь на этот слот
+        const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
+        if (existingUserBooking) {
+            showToast('❌ Вы уже записаны на этот слот', 1300);
+            return;
+        }
+        
+        // Проверяем, есть ли свободные места
+        let existingBookings = bookings.filter(b => 
             b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin
         );
         
-        if (existing.length >= 2) {
+        if (existingBookings.length >= 2) {
             showToast('⚠️ Уже 2 игрока, запись невозможна', 1300);
             return;
         }
@@ -376,13 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let dayObj = week.find(d => d.dateStr === dateStr);
         let niceDate = dayObj ? dayObj.displayDate : dateStr;
         
-        // Подтверждение записи с информацией о слоте
-        let confirmMsg = `🎾 Запись на теннис\n📅 ${niceDate}\n⏰ ${startTime} — ${endTime}\nМест осталось: ${2 - existing.length}\nЗаписаться?`;
+        let confirmMsg = `🎾 Запись на теннис\n📅 ${niceDate}\n⏰ ${startTime} — ${endTime}\nМест осталось: ${2 - existingBookings.length}\nЗаписаться?`;
         
         if (confirm(confirmMsg)) {
-            let newId = Date.now() + Math.random() * 10000;  // Уникальный ID
+            let newId = Date.now() + Math.random() * 10000;
             bookings.push({
                 id: newId,
+                userId: currentUserId,        // ← НОВОЕ: привязка к пользователю
                 dayIndex: dayIndex,
                 dateStr: dateStr,
                 startMin: startMin,
@@ -391,26 +262,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 endTime: endTime,
             });
             showToast(`✅ Запись добавлена!`, 1300);
-            renderCards();          // Обновляем карточки
-            renderMyBookings();     // Обновляем список записей
+            
+            // Обновляем интерфейс
+            renderCards();
+            updateBookingsCount();
         }
     }
     
-    // ======================================================================
-    // 15. ОТРИСОВКА ВСЕХ КАРТОЧЕК СЛОТОВ (ОСНОВНОЙ СПИСОК)
-    // ======================================================================
+    // ===== 9. ОБНОВЛЕНИЕ СЧЁТЧИКА НА КНОПКЕ =====
+    function updateBookingsCount() {
+        const myBookings = bookings.filter(b => b.userId === currentUserId);
+        const count = myBookings.length;
+        const badge = document.getElementById('bookingsCountBadge');
+        if (badge) {
+            badge.textContent = count;
+        }
+        
+        // Обновляем текст кнопки в зависимости от режима фильтра
+        const toggleBtn = document.getElementById('myBookingsToggleBtn');
+        if (toggleBtn) {
+            if (filterMode === 'all') {
+                toggleBtn.innerHTML = `📋 Мои записи <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">${count}</span>`;
+            } else {
+                toggleBtn.innerHTML = `🌍 Все записи <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">${count}</span>`;
+            }
+        }
+    }
     
-    /**
-     * Генерирует и отображает все карточки слотов на неделю
-     * Это основная функция рендеринга интерфейса
-     */
+    // ===== 10. ОТРИСОВКА КАРТОЧЕК (С КНОПКОЙ ОТМЕНЫ В УГЛУ) =====
     function renderCards() {
         const container = document.getElementById('slotsContainer');
         if (!container) return;
         
-        const slots = getAllFlatSlots();
+        const slots = getFilteredSlots();
         
-        if (slots.length === 0) {
+        // Проверка на пустой результат при фильтрации
+        if (filterMode === 'my' && slots.length === 0) {
+            showToast('📭 У вас нет активных записей', 1500);
+            container.innerHTML = `<div style="text-align:center; padding:40px;">✨ У вас нет записей. Нажмите "Все записи" чтобы посмотреть слоты.</div>`;
+            return;
+        }
+        
+        if (slots.length === 0 && filterMode === 'all') {
             container.innerHTML = `<div style="text-align:center; padding:40px;">✨ Нет доступных слотов. Измените настройки дней.</div>`;
             return;
         }
@@ -421,20 +314,34 @@ document.addEventListener('DOMContentLoaded', () => {
             let statusText = '';
             let leftIcon = '';
             
-            // Определяем стили и текст в зависимости от статуса слота
+            // Определяем статус и текст
             if (slot.status === 'available') {
                 statusClass = 'available';
                 statusText = '🟢 Свободно (2 места)';
                 leftIcon = '🎾';
             } else if (slot.status === 'partial') {
                 statusClass = 'partial';
-                statusText = '🟡 1 игрок, есть место!';
+                // ===== НОВОЕ: меняем текст если пользователь записан =====
+                if (slot.isUserBooked) {
+                    statusText = '🎾 Вы записаны · 1/2 игрока';
+                } else {
+                    statusText = '🟡 1 игрок, есть место!';
+                }
                 leftIcon = '🎾+';
             } else {
                 statusClass = 'full';
-                statusText = '🔴 Занято (оба игрока)';
+                if (slot.isUserBooked) {
+                    statusText = '🔴 Вы записаны (слот заполнен)';
+                } else {
+                    statusText = '🔴 Занято (оба игрока)';
+                }
                 leftIcon = '⛔';
             }
+            
+            // ===== НОВОЕ: генерируем кнопку отмены (красный крестик в правом верхнем углу) =====
+            const cancelButtonHtml = slot.isUserBooked 
+                ? `<button class="cancel-slot-btn" data-cancel="true" data-dayidx="${slot.dayIndex}" data-datestr="${slot.dateStr}" data-startmin="${slot.startMin}">✖</button>` 
+                : '';
             
             html += `
                 <div class="card-slot ${statusClass}" 
@@ -442,7 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
                      data-datestr="${slot.dateStr}" 
                      data-startmin="${slot.startMin}" 
                      data-endmin="${slot.endMin}" 
-                     data-status="${slot.status}">
+                     data-status="${slot.status}"
+                     ${slot.isUserBooked ? 'data-user-booked="true"' : ''}>
+                    
+                    ${cancelButtonHtml}
+                    
                     <div class="time-block">
                         <div class="hour-large">${slot.startTime} — ${slot.endTime}</div>
                         <div class="date-sm">${slot.displayDate}</div>
@@ -456,34 +367,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         container.innerHTML = html;
         
-        // Вешаем обработчики кликов на каждую карточку
+        // Вешаем обработчики
         document.querySelectorAll('.card-slot').forEach(card => {
+            // Определяем, есть ли у карточки data-user-booked
+            const isUserBooked = card.dataset.userBooked === 'true';
+            const status = card.dataset.status;
+            const dayIdx = parseInt(card.dataset.dayidx);
+            const dateStr = card.dataset.datestr;
+            const startMin = parseInt(card.dataset.startmin);
+            const endMin = parseInt(card.dataset.endmin);
+            
+            // Обработчик для основной области карточки (запись)
             card.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const status = card.dataset.status;
+                
+                // Если кликнули на кнопку отмены — ничего не делаем (она обработает сама)
+                if (e.target.classList && e.target.classList.contains('cancel-slot-btn')) {
+                    return;
+                }
+                
+                // Если пользователь уже записан на этот слот — нельзя записаться снова
+                if (isUserBooked) {
+                    showToast('❌ Вы уже записаны на этот слот', 1200);
+                    return;
+                }
                 
                 if (status === 'full') {
                     showToast('❌ Слот полностью занят', 1200);
                     return;
                 }
                 
-                const dayIdx = parseInt(card.dataset.dayidx);
-                const dateStr = card.dataset.datestr;
-                const startMin = parseInt(card.dataset.startmin);
-                const endMin = parseInt(card.dataset.endmin);
                 handleBooking(dayIdx, dateStr, startMin, endMin);
+            });
+        });
+        
+        // Обработчики для кнопок отмены (красные крестики)
+        document.querySelectorAll('.cancel-slot-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dayIdx = parseInt(btn.dataset.dayidx);
+                const dateStr = btn.dataset.datestr;
+                const startMin = parseInt(btn.dataset.startmin);
+                cancelBooking(dayIdx, dateStr, startMin);
             });
         });
     }
     
-    // ======================================================================
-    // 16. АДМИН-ПАНЕЛЬ — ПОСТРОЕНИЕ UI ДЛЯ НАСТРОЙКИ ДНЕЙ
-    // ======================================================================
-    
-    /**
-     * Создаёт интерфейс в админ-панели для настройки каждого дня недели
-     * Позволяет включать/выключать дни и задавать время работы
-     */
+    // ===== 11. АДМИН-ПАНЕЛЬ =====
     function buildDayTogglesUI() {
         const container = document.getElementById('dayTogglesContainer');
         if (!container) return;
@@ -503,45 +433,35 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(dayDiv);
         }
         
-        // Обработчик изменения чекбокса (вкл/выкл день)
         document.querySelectorAll('.dayActiveCheck').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 let day = parseInt(e.target.dataset.day);
                 daySettings[day].active = e.target.checked;
                 renderCards();
-                renderMyBookings();
+                updateBookingsCount();
             });
         });
         
-        // Обработчик изменения времени начала работы
         document.querySelectorAll('.greenStartInput').forEach(inp => {
             inp.addEventListener('change', (e) => {
                 let day = parseInt(e.target.dataset.day);
                 daySettings[day].greenStart = e.target.value;
                 renderCards();
-                renderMyBookings();
+                updateBookingsCount();
             });
         });
         
-        // Обработчик изменения времени окончания работы
         document.querySelectorAll('.greenEndInput').forEach(inp => {
             inp.addEventListener('change', (e) => {
                 let day = parseInt(e.target.dataset.day);
                 daySettings[day].greenEnd = e.target.value;
                 renderCards();
-                renderMyBookings();
+                updateBookingsCount();
             });
         });
     }
     
-    // ======================================================================
-    // 17. УПРАВЛЕНИЕ ТЕМОЙ (СВЕТЛАЯ/ТЁМНАЯ)
-    // ======================================================================
-    
-    /**
-     * Инициализирует тему из localStorage и настраивает переключение
-     * Сохраняет выбор пользователя между сессиями
-     */
+    // ===== 12. ТЕМА =====
     function initTheme() {
         const savedTheme = localStorage.getItem('tennis_theme');
         const themeBtn = document.getElementById('themeToggleBtn');
@@ -570,97 +490,62 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ======================================================================
-    // 18. ФУНКЦИЯ ДЛЯ ПЕРЕСЧЁТА ВЫСОТЫ СПИСКА (для корректного скролла)
-    // ======================================================================
-    
-    /**
-     * Принудительно обновляет layout страницы при скрытии/показе блока "Мои записи"
-     * Исправляет возможные проблемы с прокруткой
-     */
-    function refreshSlotsHeight() {
-        const slotsContainer = document.getElementById('slotsContainer');
-        if (!slotsContainer) return;
-        slotsContainer.style.transform = 'translateZ(0)';
-        setTimeout(() => {
-            slotsContainer.style.transform = '';
-        }, 50);
-    }
-    
-    // ======================================================================
-    // 19. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ — ТОЧКА ВХОДА
-    // ======================================================================
-    
-    /**
-     * Главная функция инициализации — вызывается при загрузке страницы
-     * Настраивает всё приложение: темы, админку, обработчики, рендеринг
-     */
+    // ===== 13. ИНИЦИАЛИЗАЦИЯ =====
     function init() {
-        // Строим UI админ-панели (переключатели дней)
         buildDayTogglesUI();
-        
-        // Отрисовываем карточки и список записей
         renderCards();
-        renderMyBookings();
-        
-        // Настраиваем тему
+        updateBookingsCount();
         initTheme();
         
-        // ===== НАСТРОЙКА АДМИН-ПАНЕЛИ =====
+        // Админ-панель
         const adminBtn = document.getElementById('adminToggleBtn');
         const adminPanel = document.getElementById('adminPanel');
         adminBtn.addEventListener('click', () => {
             adminPanel.classList.toggle('open');
         });
         
-        // Настройка шага сетки (30 или 60 минут)
+        // Настройки сетки
         const stepSelect = document.getElementById('stepSelect');
+        const durationSelect = document.getElementById('durationSelect');
         stepSelect.addEventListener('change', (e) => {
             stepMinutes = parseInt(e.target.value);
             renderCards();
         });
-        
-        // Настройка длительности слота
-        const durationSelect = document.getElementById('durationSelect');
         durationSelect.addEventListener('change', (e) => {
             defaultDuration = parseInt(e.target.value);
             renderCards();
         });
         
-        // Кнопка принудительного обновления календаря
         document.getElementById('refreshCalendarBtn')?.addEventListener('click', () => {
             renderCards();
-            renderMyBookings();
+            updateBookingsCount();
             showToast("Календарь обновлён", 1000);
         });
         
-        // ===== УПРАВЛЕНИЕ СКРЫТИЕМ/ПОКАЗОМ БЛОКА "МОИ ЗАПИСИ" =====
-        const myBookingsSection = document.getElementById('myBookingsSection');
+        // ===== НОВОЕ: КНОПКА ФИЛЬТРА "МОИ ЗАПИСИ" / "ВСЕ ЗАПИСИ" =====
         const myBookingsToggleBtn = document.getElementById('myBookingsToggleBtn');
-        let isBookingsVisible = true;
-        
-        if (myBookingsToggleBtn && myBookingsSection) {
+        if (myBookingsToggleBtn) {
             myBookingsToggleBtn.addEventListener('click', () => {
-                if (isBookingsVisible) {
-                    myBookingsSection.classList.add('hidden');
-                    isBookingsVisible = false;
+                if (filterMode === 'all') {
+                    // Проверяем, есть ли у пользователя записи
+                    const myBookingsCount = bookings.filter(b => b.userId === currentUserId).length;
+                    if (myBookingsCount === 0) {
+                        showToast('📭 У вас нет активных записей', 1500);
+                        return;
+                    }
+                    filterMode = 'my';
                 } else {
-                    myBookingsSection.classList.remove('hidden');
-                    isBookingsVisible = true;
+                    filterMode = 'all';
                 }
-                // После изменения видимости обновляем высоту списка
-                setTimeout(() => {
-                    refreshSlotsHeight();
-                    window.dispatchEvent(new Event('resize'));
-                }, 50);
+                
+                // Обновляем текст кнопки и счётчик
+                updateBookingsCount();
+                // Перерисовываем карточки с учётом фильтра
+                renderCards();
             });
         }
     }
     
-    // ======================================================================
-    // 20. ЗАПУСК ПРИЛОЖЕНИЯ
-    // ======================================================================
-    // Вызываем init() после полной загрузки DOM
     init();
     
 }); // Конец DOMContentLoaded

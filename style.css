@@ -492,3 +492,51 @@ body.dark .player-badge {
         padding: 6px 14px;
     }
 }
+
+/* ===== 11. КНОПКА ОТМЕНЫ В КАРТОЧКЕ (КРАСНЫЙ КРЕСТИК) ===== */
+.card-slot {
+    position: relative;  /* Чтобы кнопка позиционировалась относительно карточки */
+}
+
+/* Кнопка отмены — красный крестик в правом верхнем углу */
+.cancel-slot-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, background 0.1s;
+    z-index: 10;
+    
+    /* Мобильная оптимизация */
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.cancel-slot-btn:hover {
+    background: #c53030;
+}
+
+.cancel-slot-btn:active {
+    transform: scale(0.92);
+}
+
+/* Тёмная тема для кнопки отмены */
+body.dark .cancel-slot-btn {
+    background: #dc2626;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark .cancel-slot-btn:active {
+    background: #b91c1c;
+}
