@@ -4,7 +4,410 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, shrink-to-fit=no">
     <title>Теннис Корт — запись на игру</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ГЛОБАЛЬНЫЙ ЗАПРЕТ ГОРИЗОНТАЛЬНОГО СКРОЛЛА */
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', 'Inter', sans-serif;
+            background: var(--bg-light);
+            color: #1a2634;
+            transition: background 0.2s, color 0.2s;
+            /*padding: 20px 16px 40px;*/
+            padding: 20px 16px 8px;
+            min-height: 100vh;
+            overflow-x: hidden;
+            width: 100%;
+            touch-action: pan-y;
+        }
+
+        /* тёмная тема */
+        body.dark {
+            background: var(--bg-dark);
+            color: #eef2ff;
+        }
+
+        /* переменные */
+        :root {
+            --bg-light: #f2f5f9;
+            --bg-dark: #0a0f1c;
+            --card-light: #ffffff;
+            --card-dark: #16202e;
+            --green-available: #2ecc71;
+            --rose-booked: #f5a3b0;
+            --border-radius-card: 28px;
+            --shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+        }
+
+        body.dark .card-slot {
+            background: var(--card-dark);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+        }
+        body.dark .player-badge {
+            background: #1e2a3a;
+            color: #cbd5e6;
+        }
+        body.dark .admin-panel {
+            background: #111a27cc;
+            backdrop-filter: blur(12px);
+        }
+        body.dark .day-tag {
+            background: #253341;
+        }
+        body.dark .my-bookings-section {
+            background: rgba(10, 20, 30, 0.7);
+        }
+        body.dark .booking-item-mini {
+            background: #0f172a;
+        }
+        body.dark select, body.dark input {
+            background: #1f2a3c;
+            border-color: #3f4a60;
+            color: white;
+        }
+        body.dark .btn-icon {
+            background: #243449;
+            color: white;
+        }
+        body.dark .title-section h1 {
+            background: linear-gradient(135deg, #6fbf4c, #d4ffb0);
+            background-clip: text;
+            -webkit-background-clip: text;
+        }
+
+        /* шапка */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 28px;
+            width: 100%;
+        }
+        .title-section h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #2c7a47, #0f2b1f);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .title-section p {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-icon {
+            background: #ffffffcc;
+            backdrop-filter: blur(4px);
+            border: none;
+            border-radius: 60px;
+            padding: 8px 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: var(--shadow);
+        }
+        .btn-icon:active {
+            transform: scale(0.96);
+        }
+
+        /* админ-панель */
+        .admin-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 38px;
+            padding: 18px 20px;
+            margin-bottom: 26px;
+            display: none;
+            flex-direction: column;
+            gap: 18px;
+            width: 100%;
+        }
+        .admin-panel.open {
+            display: flex;
+        }
+        .admin-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .admin-label {
+            font-weight: 600;
+            font-size: 0.8rem;
+            min-width: 100px;
+        }
+        select, input {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 8px 14px;
+            border-radius: 34px;
+            font-size: 0.8rem;
+        }
+        .day-toggles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .day-tag {
+            background: #eef2fa;
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* БЛОК МОИ ЗАПИСИ (наверху) */
+        .my-bookings-section {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            padding: 18px;
+            margin-bottom: 24px;
+            width: 100%;
+        }
+        .booking-item-mini {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.03);
+            padding: 12px 14px;
+            border-radius: 40px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .cancel-mini {
+            background: #e53e3e;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            min-height: 44px;
+            min-width: 100px;
+        }
+        .cancel-mini:active {
+            transform: scale(0.96);
+        }
+
+        /* ОСНОВНОЙ СПИСОК КАРТОЧЕК — ИНЕРЦИОННАЯ ПРОКРУТКА, БЕЗ ГОРИЗОНТАЛЬНОГО СКРОЛЛА */
+        .slots-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 100%;
+            /*overflow-y: auto;*/
+            overflow-x: hidden;
+            /*-webkit-overflow-scrolling: touch;
+            overscroll-behavior: none;*/
+            margin-bottom: 20px;
+            touch-action: pan-y;
+        }
+        
+/*        .slots-list::after {
+            content: '';
+            display: block;
+            height: 24px;
+            width: 100%;
+            flex-shrink: 0;
+        }*/
+
+        /* карточка слота — всегда 100% ширины */
+        .card-slot {
+            background: var(--card-light);
+            border-radius: var(--border-radius-card);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 14px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            border-left: 8px solid;
+            min-height: 130px;
+            width: 100%;
+            transition: 0.1s;
+        }
+        .card-slot.available {
+            border-left-color: var(--green-available);
+            background: #ffffff;
+        }
+        body.dark .card-slot.available {
+            background: #16202e;
+        }
+        .card-slot.partial {
+            border-left-color: #f39c12;
+            background: #fff9ef;
+        }
+        body.dark .card-slot.partial {
+            background: #1e2a2f;
+            border-left-color: #e67e22;
+        }
+        .card-slot.full {
+            border-left-color: var(--rose-booked);
+            background: #fff2f4;
+        }
+        body.dark .card-slot.full {
+            background: #2c1b22;
+            border-left-color: #e46f8a;
+        }
+        .card-slot:active {
+            transform: scale(0.99);
+        }
+
+        .time-block {
+            display: flex;
+            flex-direction: column;
+            min-width: 110px;
+        }
+        .hour-large {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+        }
+        .date-sm {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-top: 5px;
+            white-space: normal;
+            word-break: keep-all;
+        }
+        .players-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .player-badge {
+            background: #f0f3f9;
+            border-radius: 60px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        body.dark .player-badge {
+            background: #1f2c3c;
+        }
+        .status-chip {
+            padding: 6px 15px;
+            border-radius: 60px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: #e9ecef;
+        }
+        .card-slot.available .status-chip {
+            background: #d5f5e3;
+            color: #116530;
+        }
+        .card-slot.partial .status-chip {
+            background: #fee2b5;
+            color: #9c4221;
+        }
+        .card-slot.full .status-chip {
+            background: #ffe0e7;
+            color: #b91c1c;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            z-index: 1200;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* мобильная адаптация: всё строго по ширине */
+        @media (max-width: 550px) {
+            body {
+                padding: 14px;
+            }
+            .card-slot {
+                background: var(--card-light);
+                border-radius: var(--border-radius-card);
+                padding: 18px 20px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 14px;
+                box-shadow: var(--shadow);
+                cursor: pointer;
+                border-left: 8px solid;
+                min-height: 130px;
+                width: 100%;
+                transition: 0.1s;
+                touch-action: pan-y pinch-zoom; /* ← ДОБАВИТЬ ЭТУ СТРОКУ */
+            }
+            .players-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .hour-large {
+                font-size: 1.5rem;
+            }
+            .date-sm {
+                font-size: 0.7rem;
+                white-space: normal;
+            }
+            .toast {
+                white-space: normal;
+                text-align: center;
+                max-width: 85%;
+            }
+            .cancel-mini {
+                min-width: 80px;
+                padding: 6px 14px;
+            }
+        }
+                    /* Анимация для скрытия/показа блока записей */
+        .my-bookings-section {
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .my-bookings-section.hidden {
+            display: none !important;
+        }
+    </style>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <meta name="theme-color" content="#2ecc71">
@@ -24,6 +427,7 @@
         </div>
     </div>
 
+    <!-- Админ панель -->
     <div class="admin-panel" id="adminPanel">
         <div class="admin-row">
             <span class="admin-label">⏱️ Шаг / длительность</span>
@@ -47,22 +451,463 @@
         <small>🟢 Свободно (2 места) · 🟠 1 игрок · 🔴 Полная запись</small>
     </div>
 
+    <!-- Мои записи (вверху) - теперь скрываемый -->
     <div class="my-bookings-section" id="myBookingsSection" style="display: flex;">
         <h3 style="font-size:1.1rem; margin-bottom:14px;">📋 Мои записи на корт</h3>
         <div id="myBookingsList">Нет активных броней</div>
     </div>
 
+    <!-- Список карточек — ВЕРТИКАЛЬНЫЙ СКРОЛЛ, ИНЕРЦИЯ -->
     <div class="slots-list" id="slotsContainer"></div>
 
     <div id="toastMsg" class="toast">✅ Готово</div>
 
-    <script src="script.js"></script>
+    <script>
+        (function(){
+            // ---------- 1. ДАННЫЕ И НАСТРОЙКИ ----------
+            const daysOfWeekFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+            const monthNamesGenitive = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+            
+            let daySettings = {
+                0: { active: false, greenStart: "10:00", greenEnd: "18:00" },
+                1: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+                2: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+                3: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+                4: { active: true,  greenStart: "09:00", greenEnd: "21:00" },
+                5: { active: true,  greenStart: "09:00", greenEnd: "20:00" },
+                6: { active: false, greenStart: "12:00", greenEnd: "16:00" }
+            };
+            
+            let bookings = [];      // { id, dayIndex, dateStr, startMin, endMin, startTime, endTime }
+            let stepMinutes = 60;
+            let defaultDuration = 60;
+
+            // ---------- 2. УТИЛИТЫ ----------
+            function timeToMinutes(timeStr) {
+                let [h, m] = timeStr.split(':').map(Number);
+                return h * 60 + (m || 0);
+            }
+            function minutesToTime(min) {
+                let h = Math.floor(min / 60);
+                let m = min % 60;
+                return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+            }
+            
+            function formatFullDate(dateObj, dayFullName) {
+                let dayNum = dateObj.getDate();
+                let formattedDayNum = dayNum < 10 ? '0' + dayNum : dayNum;
+                let monthName = monthNamesGenitive[dateObj.getMonth()];
+                let year = dateObj.getFullYear();
+                return `${dayFullName}, ${formattedDayNum} ${monthName} ${year}`;
+            }
+            
+            function getNext7Days() {
+                let today = new Date();
+                let days = [];
+                for (let i = 0; i < 7; i++) {
+                    let d = new Date();
+                    d.setDate(today.getDate() + i);
+                    let dayIndex = d.getDay();
+                    let fullDateStr = d.toISOString().slice(0,10);
+                    let fullDayName = daysOfWeekFull[dayIndex];
+                    let formattedDateStr = formatFullDate(d, fullDayName);
+                    days.push({
+                        date: d,
+                        dayIndex: dayIndex,
+                        fullName: fullDayName,
+                        dateStr: fullDateStr,
+                        displayDate: formattedDateStr,
+                    });
+                }
+                return days;
+            }
+            
+            function isInGreenZone(dayIndex, minuteOfDay) {
+                let sett = daySettings[dayIndex];
+                if (!sett.active) return false;
+                let startMin = timeToMinutes(sett.greenStart);
+                let endMin = timeToMinutes(sett.greenEnd);
+                return (minuteOfDay >= startMin && minuteOfDay < endMin);
+            }
+            
+            function getSlotsForDay(dayObj) {
+                let slots = [];
+                let totalMinutes = 24*60;
+                for (let t = 0; t < totalMinutes; t += stepMinutes) {
+                    let startMin = t;
+                    let endMin = Math.min(t + stepMinutes, totalMinutes);
+                    if (!isInGreenZone(dayObj.dayIndex, startMin)) continue;
+                    if (endMin > totalMinutes) continue;
+                    let slotBookings = bookings.filter(b => 
+                        b.dayIndex === dayObj.dayIndex && b.dateStr === dayObj.dateStr && b.startMin === startMin
+                    );
+                    let bookedCount = slotBookings.length;
+                    let status = 'available';
+                    if (bookedCount === 1) status = 'partial';
+                    if (bookedCount >= 2) status = 'full';
+                    slots.push({
+                        startMin: startMin,
+                        endMin: endMin,
+                        startTime: minutesToTime(startMin),
+                        endTime: minutesToTime(endMin),
+                        status: status,
+                        bookedCount: bookedCount,
+                    });
+                }
+                return slots;
+            }
+            
+            function getAllFlatSlots() {
+                const weekDays = getNext7Days();
+                let result = [];
+                for (let day of weekDays) {
+                    const daySlots = getSlotsForDay(day);
+                    for (let slot of daySlots) {
+                        result.push({
+                            ...slot,
+                            dayIndex: day.dayIndex,
+                            dateStr: day.dateStr,
+                            displayDate: day.displayDate,
+                            fullDayName: day.fullName,
+                        });
+                    }
+                }
+                return result;
+            }
+            
+            // ---------- 3. ОТРИСОВКА КАРТОЧЕК ----------
+            function renderCards() {
+                const container = document.getElementById('slotsContainer');
+                if (!container) return;
+                const slots = getAllFlatSlots();
+                if (slots.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:40px;">✨ Нет доступных слотов. Измените настройки дней.</div>`;
+                    return;
+                }
+                let html = '';
+                for (let slot of slots) {
+                    let statusClass = '';
+                    let statusText = '';
+                    let leftIcon = '';
+                    if (slot.status === 'available') {
+                        statusClass = 'available';
+                        statusText = '🟢 Свободно (2 места)';
+                        leftIcon = '🎾';
+                    } else if (slot.status === 'partial') {
+                        statusClass = 'partial';
+                        statusText = '🟡 1 игрок, есть место!';
+                        leftIcon = '🎾+';
+                    } else {
+                        statusClass = 'full';
+                        statusText = '🔴 Занято (оба игрока)';
+                        leftIcon = '⛔';
+                    }
+                    html += `
+                        <div class="card-slot ${statusClass}" data-dayidx="${slot.dayIndex}" data-datestr="${slot.dateStr}" data-startmin="${slot.startMin}" data-endmin="${slot.endMin}" data-status="${slot.status}">
+                            <div class="time-block">
+                                <div class="hour-large">${slot.startTime} — ${slot.endTime}</div>
+                                <div class="date-sm">${slot.displayDate}</div>
+                            </div>
+                            <div class="players-info">
+                                <div class="player-badge">${leftIcon} ${slot.bookedCount}/2 игрока</div>
+                                <div class="status-chip">${statusText}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+                // слушатели на карточки
+                document.querySelectorAll('.card-slot').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const status = card.dataset.status;
+                        if (status === 'full') {
+                            showToast('❌ Слот полностью занят', 1200);
+                            return;
+                        }
+                        const dayIdx = parseInt(card.dataset.dayidx);
+                        const dateStr = card.dataset.datestr;
+                        const startMin = parseInt(card.dataset.startmin);
+                        const endMin = parseInt(card.dataset.endmin);
+                        handleBooking(dayIdx, dateStr, startMin, endMin);
+                    });
+                });
+            }
+            
+            // ---------- 4. ЗАПИСЬ И ОТМЕНА ----------
+            function handleBooking(dayIndex, dateStr, startMin, endMin) {
+                let existing = bookings.filter(b => b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin);
+                if (existing.length >= 2) {
+                    showToast('⚠️ Уже 2 игрока, запись невозможна', 1300);
+                    return;
+                }
+                let startTime = minutesToTime(startMin);
+                let endTime = minutesToTime(endMin);
+                let week = getNext7Days();
+                let dayObj = week.find(d => d.dateStr === dateStr);
+                let niceDate = dayObj ? dayObj.displayDate : dateStr;
+                let confirmMsg = `🎾 Запись на теннис\n📅 ${niceDate}\n⏰ ${startTime} — ${endTime}\nМест осталось: ${2 - existing.length}\nЗаписаться?`;
+                if (confirm(confirmMsg)) {
+                    let newId = Date.now() + Math.random() * 10000;
+                    bookings.push({
+                        id: newId,
+                        dayIndex: dayIndex,
+                        dateStr: dateStr,
+                        startMin: startMin,
+                        endMin: endMin,
+                        startTime: startTime,
+                        endTime: endTime,
+                    });
+                    showToast(`✅ Запись добавлена!`, 1300);
+                    renderCards();
+                    renderMyBookings();
+                }
+            }
+            
+            function cancelBookingById(bookingId) {
+                let booking = bookings.find(b => b.id == bookingId);
+                if (!booking) return false;
+                let week = getNext7Days();
+                let dayInfo = week.find(d => d.dateStr === booking.dateStr);
+                let niceDate = dayInfo ? dayInfo.displayDate : booking.dateStr;
+                if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${booking.startTime} — ${booking.endTime}`)) {
+                    bookings = bookings.filter(b => b.id !== bookingId);
+                    showToast("❌ Запись отменена", 1200);
+                    renderCards();
+                    renderMyBookings();
+                    return true;
+                }
+                return false;
+            }
+            
+function renderMyBookings() {
+    const container = document.getElementById('myBookingsList');
+    if (!container) return;
+    
+    // ===== ОБНОВЛЯЕМ СЧЕТЧИК НА КНОПКЕ =====
+    const bookingsCountBadge = document.getElementById('bookingsCountBadge');
+    if (bookingsCountBadge) {
+        bookingsCountBadge.textContent = bookings.length;
+    }
+    // =======================================
+    
+    if (bookings.length === 0) {
+        container.innerHTML = '<div style="padding: 12px; text-align:center;">🎾 Нет активных записей. Нажмите на карточку.</div>';
+        return;
+    }
+    let sorted = [...bookings].sort((a,b) => {
+        if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
+        return a.startMin - b.startMin;
+    });
+    let html = '';
+    for (let b of sorted) {
+        let week = getNext7Days();
+        let dayMatch = week.find(d => d.dateStr === b.dateStr);
+        let niceDate = dayMatch ? dayMatch.displayDate : b.dateStr;
+        html += `
+            <div class="booking-item-mini">
+                <span><strong>🎾 ${niceDate}</strong>  ${b.startTime} — ${b.endTime}</span>
+                <button class="cancel-mini" data-id="${b.id}">Отменить</button>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+    document.querySelectorAll('.cancel-mini').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            let id = parseFloat(btn.dataset.id);
+            cancelBookingById(id);
+        });
+    });
+}
+            
+            function showToast(msg, duration = 1800) {
+                let toast = document.getElementById('toastMsg');
+                toast.innerText = msg;
+                toast.style.opacity = '1';
+                setTimeout(() => { toast.style.opacity = '0'; }, duration);
+            }
+            
+            // ---------- 5. АДМИНКА UI ----------
+            function buildDayTogglesUI() {
+                const container = document.getElementById('dayTogglesContainer');
+                if (!container) return;
+                container.innerHTML = '';
+                for (let i = 0; i <= 6; i++) {
+                    let sett = daySettings[i];
+                    let dayDiv = document.createElement('div');
+                    dayDiv.className = 'day-tag';
+                    dayDiv.innerHTML = `
+                        <input type="checkbox" class="dayActiveCheck" data-day="${i}" ${sett.active ? 'checked' : ''}>
+                        <strong>${daysOfWeekFull[i].slice(0,3)}</strong>
+                        <input type="time" class="greenStartInput" data-day="${i}" value="${sett.greenStart}" style="width:85px;">
+                        <span>-</span>
+                        <input type="time" class="greenEndInput" data-day="${i}" value="${sett.greenEnd}" style="width:85px;">
+                    `;
+                    container.appendChild(dayDiv);
+                }
+                document.querySelectorAll('.dayActiveCheck').forEach(cb => {
+                    cb.addEventListener('change', (e) => {
+                        let day = parseInt(e.target.dataset.day);
+                        daySettings[day].active = e.target.checked;
+                        renderCards();
+                        renderMyBookings();
+                    });
+                });
+                document.querySelectorAll('.greenStartInput').forEach(inp => {
+                    inp.addEventListener('change', (e) => {
+                        let day = parseInt(e.target.dataset.day);
+                        daySettings[day].greenStart = e.target.value;
+                        renderCards();
+                        renderMyBookings();
+                    });
+                });
+                document.querySelectorAll('.greenEndInput').forEach(inp => {
+                    inp.addEventListener('change', (e) => {
+                        let day = parseInt(e.target.dataset.day);
+                        daySettings[day].greenEnd = e.target.value;
+                        renderCards();
+                        renderMyBookings();
+                    });
+                });
+            }
+            
+            // тема + сохранение
+            function initTheme() {
+                const savedTheme = localStorage.getItem('tennis_theme');
+                if (savedTheme === 'dark') {
+                    document.body.classList.remove('light');
+                    document.body.classList.add('dark');
+                    document.getElementById('themeToggleBtn').innerText = '☀️ Светлая';
+                } else {
+                    document.body.classList.add('light');
+                }
+                const themeBtn = document.getElementById('themeToggleBtn');
+                themeBtn.addEventListener('click', () => {
+                    if (document.body.classList.contains('light')) {
+                        document.body.classList.remove('light');
+                        document.body.classList.add('dark');
+                        localStorage.setItem('tennis_theme', 'dark');
+                        themeBtn.innerText = '☀️ Светлая';
+                    } else {
+                        document.body.classList.remove('dark');
+                        document.body.classList.add('light');
+                        localStorage.setItem('tennis_theme', 'light');
+                        themeBtn.innerText = '🌙 Темная';
+                    }
+                });
+            }
+            
+            function init() {
+                buildDayTogglesUI();
+                renderCards();
+                renderMyBookings();
+                initTheme();
+                
+                const adminBtn = document.getElementById('adminToggleBtn');
+                const adminPanel = document.getElementById('adminPanel');
+                adminBtn.addEventListener('click', () => {
+                    adminPanel.classList.toggle('open');
+                });
+                
+                const stepSelect = document.getElementById('stepSelect');
+                const durationSelect = document.getElementById('durationSelect');
+                stepSelect.addEventListener('change', (e) => {
+                    stepMinutes = parseInt(e.target.value);
+                    renderCards();
+                });
+                durationSelect.addEventListener('change', (e) => {
+                    defaultDuration = parseInt(e.target.value);
+                    renderCards();
+                });
+                document.getElementById('refreshCalendarBtn')?.addEventListener('click', () => {
+                    renderCards();
+                    renderMyBookings();
+                    showToast("Календарь обновлён", 1000);
+                });
+                
+                // ========== НОВЫЙ КОД ==========
+                // Управление скрытием/показом блока "Мои записи"
+                const myBookingsSection = document.getElementById('myBookingsSection');
+                const myBookingsToggleBtn = document.getElementById('myBookingsToggleBtn');
+                const slotsContainer = document.getElementById('slotsContainer');
+                let isBookingsVisible = true;
+                
+                // Функция для принудительного пересчета высоты списка
+                function refreshSlotsHeight() {
+                    if (!slotsContainer) return;
+                    // Временное решение: заставляем браузер пересчитать layout
+                    slotsContainer.style.transform = 'translateZ(0)';
+                    setTimeout(() => {
+                        slotsContainer.style.transform = '';
+                    }, 50);
+                }
+                
+                if (myBookingsToggleBtn && myBookingsSection) {
+                    myBookingsToggleBtn.addEventListener('click', () => {
+                        if (isBookingsVisible) {
+                            myBookingsSection.classList.add('hidden');
+                            isBookingsVisible = false;
+                        } else {
+                            myBookingsSection.classList.remove('hidden');
+                            isBookingsVisible = true;
+                        }
+                        // После изменения видимости — обновляем высоту списка
+                        setTimeout(() => {
+                            refreshSlotsHeight();
+                            window.dispatchEvent(new Event('resize'));
+                        }, 50);
+                    });
+                }
+                // ========== КОНЕЦ НОВОГО КОДА ==========
+            }
+            
+            init();
+        })();
+    </script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('SW registered:', reg))
-                .catch(err => console.log('SW error:', err));
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('Service Worker registered:', reg);
+            }).catch(err => {
+                console.log('SW registration error:', err);
+            });
         }
     </script>
+    <script>
+    // ========== АВТООБНОВЛЕНИЕ SERVICE WORKER ==========
+    if ('serviceWorker' in navigator) {
+        // Функция для уведомлений через toast
+        function notifyUpdate(msg) {
+            if (typeof showToast === 'function') {
+                showToast(msg, 2000);
+            } else {
+                console.log(msg);
+            }
+        }
+        
+        // Регистрация SW
+        navigator.serviceWorker.register('sw.js')
+            .then(registration => {
+                console.log('✅ SW registered');
+                registration.update();
+                
+                // Проверка каждые 60 секунд
+                setInterval(() => {
+                    registration.update();
+                    console.log('🔄 Checking for updates...');
+                }, 60000);
+            })
+            .catch(err => console.log('❌ SW error:', err));
+        
+        // При активации нового SW - перезагружаем страницу
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('🔄 New version detected, reloading...');
+            notifyUpdate('🔄 Новая версия! Обновляем...');
+            setTimeout(() => window.location.reload(), 1500);
+        });
+    }
+    // ========== КОНЕЦ БЛОКА ==========
+</script>
 </body>
 </html>
