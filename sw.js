@@ -1,7 +1,10 @@
-const CACHE_NAME = 'tennis-calendar-v1';
+const CACHE_NAME = 'tennis-calendar-v2';  // Увеличил версию!
+
 const urlsToCache = [
   '.',
   'index.html',
+  'style.css',
+  'script.js',
   'manifest.json',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
