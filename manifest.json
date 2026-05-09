@@ -37,7 +37,13 @@
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "icons/icon-384.png",
@@ -48,6 +54,29 @@
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/mobile-light.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Главный экран на телефоне (светлая тема)"
+    },
+    {
+      "src": "screenshots/mobile-dark.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Главный экран на телефоне (тёмная тема)"
+    },
+    {
+      "src": "screenshots/desktop-light.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Главный экран на компьютере (светлая тема)"
     }
   ]
 }
