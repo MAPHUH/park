@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tennis-calendar-v2';  // Увеличил версию!
+const CACHE_NAME = 'tennis-calendar-v3';  // Увеличил версию!
 
 const urlsToCache = [
   '.',
