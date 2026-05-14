@@ -24,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Массив бронирований (каждый пользователь — это объект с уникальным ID)
     let bookings = [];
+
+    // WebSocket менеджер
+    let wsManager = null;
     
     // Настройки сетки
     let stepMinutes = 60;
@@ -34,10 +37,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // filterMode = 'my'  → показываем только слоты, где есть запись текущего пользователя
     let filterMode = 'all';  // 'all' или 'my'
     
-    // ===== НОВОЕ: ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ =====
-    // В реальном приложении здесь может быть ID из localStorage или от сервера
-    // Для демо используем фиксированный ID, но в будущем можно сделать выбор игрока
-    let currentUserId = 'user_001';
+    // ===== АУТЕНТИФИКАЦИЯ: ГЕНЕРАЦИЯ ID ПОЛЬЗОВАТЕЛЯ =====
+    let currentUserId = localStorage.getItem('tennis_user_id');
+    let currentUserName = localStorage.getItem('tennis_user_name');
+    
+    if (!currentUserId) {
+        currentUserId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        localStorage.setItem('tennis_user_id', currentUserId);
+    }
+    
+    if (!currentUserName) {
+        currentUserName = 'Игрок_' + currentUserId.substr(-4);
+        localStorage.setItem('tennis_user_name', currentUserName);
+    }
+    
+    console.log('👤 Текущий пользователь:', currentUserId, currentUserName);
     
     // ===== 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
     function timeToMinutes(timeStr) {
@@ -212,20 +226,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const booking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (!booking) return false;
         
-        // Получаем красивую дату для подтверждения
+        const slotId = `${dateStr}_${startMin}`;
+        
         let week = getNext7Days();
         let dayInfo = week.find(d => d.dateStr === dateStr);
         let niceDate = dayInfo ? dayInfo.displayDate : dateStr;
         
         if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${minutesToTime(startMin)} — ${minutesToTime(startMin + stepMinutes)}`)) {
-            // Удаляем бронирование
+            // Оптимистичное удаление из UI
             bookings = bookings.filter(b => b.id !== booking.id);
-            vibrate(200);
-            showToast("❌ Запись отменена", 1200);
-            
-            // Обновляем интерфейс
             renderCards();
             updateBookingsCount();
+            vibrate(200);
+            showToast("❌ Отмена отправлена", 1200);
+            
+            // Отправляем на сервер
+            if (wsManager) {
+                wsManager.cancelSlot(slotId, currentUserId);
+            }
             return true;
         }
         return false;
@@ -233,7 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ===== 8. СОЗДАНИЕ БРОНИРОВАНИЯ (С ЗАЩИТОЙ ОТ ДУБЛЕЙ) =====
     function handleBooking(dayIndex, dateStr, startMin, endMin) {
-        // Проверяем, не записан ли уже пользователь на этот слот
+        const slotId = `${dateStr}_${startMin}`;
+        
+        // Проверяем, не записан ли уже пользователь (по локальным данным)
         const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (existingUserBooking) {
             vibrate(200);
@@ -241,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Проверяем, есть ли свободные места
+        // Проверяем, есть ли свободные места (по локальным данным)
         let existingBookings = bookings.filter(b => 
             b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin
         );
@@ -261,10 +281,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let confirmMsg = `🎾 Запись на теннис\n📅 ${niceDate}\n⏰ ${startTime} — ${endTime}\nМест осталось: ${2 - existingBookings.length}\nЗаписаться?`;
         
         if (confirm(confirmMsg)) {
-            let newId = Date.now() + Math.random() * 10000;
+            // Оптимистичное обновление UI
+            const newId = Date.now() + Math.random() * 10000;
             bookings.push({
                 id: newId,
-                userId: currentUserId,        // ← НОВОЕ: привязка к пользователю
+                userId: currentUserId,
                 dayIndex: dayIndex,
                 dateStr: dateStr,
                 startMin: startMin,
@@ -272,12 +293,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 startTime: startTime,
                 endTime: endTime,
             });
-            vibrate(50);
-            showToast(`✅ Запись добавлена!`, 1300);
-            
-            // Обновляем интерфейс
             renderCards();
             updateBookingsCount();
+            vibrate(50);
+            showToast(`✅ Запись отправлена`, 1300);
+            
+            // Отправляем на сервер
+            if (wsManager) {
+                wsManager.bookSlot(slotId, currentUserId);
+            } else {
+                console.warn('WebSocket не инициализирован');
+            }
         }
     }
     
@@ -518,6 +544,86 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ===== 13. ИНИЦИАЛИЗАЦИЯ =====
     function init() {
+
+            // ===== ПОДКЛЮЧЕНИЕ WEBSOCKET =====
+        wsManager = null;
+        
+        // Функция обработки сообщений от сервера
+        function handleWebSocketMessage(data) {
+            console.log('📨 Получено сообщение от сервера:', data);
+            
+            if (data.type === 'sync') {
+                // Полная синхронизация всех слотов
+                bookings = convertServerSlotsToBookings(data.payload.slots);
+                renderCards();
+                updateBookingsCount();
+                showToast('🔄 Данные синхронизированы', 1000);
+                
+            } else if (data.type === 'update') {
+                // Обновление конкретного слота
+                updateSlotFromServer(data.payload);
+                renderCards();
+                updateBookingsCount();
+                
+            } else if (data.type === 'error') {
+                // Ошибка от сервера (конфликт, слот занят)
+                vibrate(200);
+                showToast('❌ ' + (data.message || 'Ошибка сервера'), 2000);
+                
+                // Запрашиваем полную синхронизацию
+                if (wsManager) wsManager.send({ type: 'get_sync' });
+            }
+        }
+        
+        // Функция конвертации слотов от сервера в формат bookings
+        function convertServerSlotsToBookings(serverSlots) {
+            const newBookings = [];
+            for (const slot of serverSlots) {
+                // Для каждого пользователя в слоте создаём бронирование
+                for (const userId of slot.bookedUsers) {
+                    newBookings.push({
+                        id: `${slot.slotId}_${userId}`,
+                        userId: userId,
+                        dayIndex: slot.dayIndex,
+                        dateStr: slot.dateStr,
+                        startMin: slot.startMin,
+                        endMin: slot.endMin,
+                        startTime: minutesToTime(slot.startMin),
+                        endTime: minutesToTime(slot.endMin),
+                    });
+                }
+            }
+            return newBookings;
+        }
+        
+        // Функция обновления одного слота
+        function updateSlotFromServer(payload) {
+            // Удаляем старые бронирования для этого слота
+            bookings = bookings.filter(b => 
+                !(b.dayIndex === payload.dayIndex && 
+                b.dateStr === payload.dateStr && 
+                b.startMin === payload.startMin)
+            );
+            
+            // Добавляем новые
+            for (const userId of payload.bookedUsers) {
+                bookings.push({
+                    id: `${payload.slotId}_${userId}`,
+                    userId: userId,
+                    dayIndex: payload.dayIndex,
+                    dateStr: payload.dateStr,
+                    startMin: payload.startMin,
+                    endMin: payload.endMin,
+                    startTime: minutesToTime(payload.startMin),
+                    endTime: minutesToTime(payload.endMin),
+                });
+            }
+        }
+        
+        // Инициализируем WebSocket (URL позже заменим на реальный)
+        const WS_URL = 'ws://localhost:8080/ws';  // ВРЕМЕННО, для теста
+        wsManager = new WebSocketManager(WS_URL, handleWebSocketMessage);
+
         buildDayTogglesUI();
         renderCards();
         updateBookingsCount();
