@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Массив бронирований (каждый пользователь — это объект с уникальным ID)
     let bookings = [];
-    
+
+    let wsManager = null;
     // Настройки сетки
     let stepMinutes = 60;
     let defaultDuration = 60;
