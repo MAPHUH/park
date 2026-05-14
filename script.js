@@ -25,9 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Массив бронирований (каждый пользователь — это объект с уникальным ID)
     let bookings = [];
 
-    // WebSocket менеджер
     let wsManager = null;
-    
     // Настройки сетки
     let stepMinutes = 60;
     let defaultDuration = 60;
@@ -543,43 +541,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===== 13. ИНИЦИАЛИЗАЦИЯ =====
-    function init() {
-
-            // ===== ПОДКЛЮЧЕНИЕ WEBSOCKET =====
-        wsManager = null;
-        
+        function init() {
         // Функция обработки сообщений от сервера
         function handleWebSocketMessage(data) {
             console.log('📨 Получено сообщение от сервера:', data);
             
             if (data.type === 'sync') {
-                // Полная синхронизация всех слотов
                 bookings = convertServerSlotsToBookings(data.payload.slots);
                 renderCards();
                 updateBookingsCount();
                 showToast('🔄 Данные синхронизированы', 1000);
-                
             } else if (data.type === 'update') {
-                // Обновление конкретного слота
                 updateSlotFromServer(data.payload);
                 renderCards();
                 updateBookingsCount();
-                
             } else if (data.type === 'error') {
-                // Ошибка от сервера (конфликт, слот занят)
                 vibrate(200);
                 showToast('❌ ' + (data.message || 'Ошибка сервера'), 2000);
-                
-                // Запрашиваем полную синхронизацию
                 if (wsManager) wsManager.send({ type: 'get_sync' });
             }
         }
         
-        // Функция конвертации слотов от сервера в формат bookings
         function convertServerSlotsToBookings(serverSlots) {
             const newBookings = [];
             for (const slot of serverSlots) {
-                // Для каждого пользователя в слоте создаём бронирование
                 for (const userId of slot.bookedUsers) {
                     newBookings.push({
                         id: `${slot.slotId}_${userId}`,
@@ -596,16 +581,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return newBookings;
         }
         
-        // Функция обновления одного слота
         function updateSlotFromServer(payload) {
-            // Удаляем старые бронирования для этого слота
             bookings = bookings.filter(b => 
                 !(b.dayIndex === payload.dayIndex && 
-                b.dateStr === payload.dateStr && 
-                b.startMin === payload.startMin)
+                  b.dateStr === payload.dateStr && 
+                  b.startMin === payload.startMin)
             );
-            
-            // Добавляем новые
             for (const userId of payload.bookedUsers) {
                 bookings.push({
                     id: `${payload.slotId}_${userId}`,
@@ -620,23 +601,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Инициализируем WebSocket (URL позже заменим на реальный)
-        const WS_URL = 'ws://localhost:8080/ws';  // ВРЕМЕННО, для теста
-        wsManager = new WebSocketManager(WS_URL, handleWebSocketMessage);
-
         buildDayTogglesUI();
         renderCards();
         updateBookingsCount();
         initTheme();
         
-        // Админ-панель
         const adminBtn = document.getElementById('adminToggleBtn');
         const adminPanel = document.getElementById('adminPanel');
         adminBtn.addEventListener('click', () => {
             adminPanel.classList.toggle('open');
         });
         
-        // Настройки сетки
         const stepSelect = document.getElementById('stepSelect');
         const durationSelect = document.getElementById('durationSelect');
         stepSelect.addEventListener('change', (e) => {
@@ -654,12 +629,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Календарь обновлён", 1000);
         });
         
-        // ===== НОВОЕ: КНОПКА ФИЛЬТРА "МОИ ЗАПИСИ" / "ВСЕ ЗАПИСИ" =====
         const myBookingsToggleBtn = document.getElementById('myBookingsToggleBtn');
         if (myBookingsToggleBtn) {
             myBookingsToggleBtn.addEventListener('click', () => {
                 if (filterMode === 'all') {
-                    // Проверяем, есть ли у пользователя записи
                     const myBookingsCount = bookings.filter(b => b.userId === currentUserId).length;
                     if (myBookingsCount === 0) {
                         showToast('📭 У вас нет активных записей', 1500);
@@ -669,13 +642,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     filterMode = 'all';
                 }
-                
-                // Обновляем текст кнопки и счётчик
                 updateBookingsCount();
-                // Перерисовываем карточки с учётом фильтра
                 renderCards();
             });
         }
+        
+        // ===== ПОДКЛЮЧЕНИЕ WEBSOCKET (В САМОМ КОНЦЕ) =====
+        const WS_URL = 'ws://localhost:8080/ws';
+        wsManager = new WebSocketManager(WS_URL, handleWebSocketMessage);
     }
     
     init();
