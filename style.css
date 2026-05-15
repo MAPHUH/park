@@ -1,214 +1,177 @@
 /* ==========================================================================
    ТЕННИС КОРТ — СТИЛИ
-   Версия: 1.0
-   Описание: Все стили для PWA приложения записи на теннисный корт
-             Поддержка светлой/темной темы, мобильная адаптация
    ========================================================================== */
 
-/* ===== 1. ГЛОБАЛЬНЫЕ СБРОСЫ И БАЗОВЫЕ НАСТРОЙКИ ===== */
-/* Обнуляем отступы у всех элементов и задаём правильную модель коробки */
 * {
-    margin: 0;                   /* Убираем внешние отступы */
-    padding: 0;                  /* Убираем внутренние отступы */
-    box-sizing: border-box;      /* Ширина включает padding и border */
-    -webkit-tap-highlight-color: transparent;  /* Убираем серый фон при тапе на мобилках */
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* ГЛОБАЛЬНЫЙ ЗАПРЕТ ГОРИЗОНТАЛЬНОГО СКРОЛЛА — критически важно для мобильных устройств */
 html, body {
-    max-width: 100%;             /* Никогда не шире экрана */
-    overflow-x: hidden;          /* Прячем горизонтальную прокрутку */
-    position: relative;          /* Для корректного позиционирования */
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
 }
 
-/* Основные стили body — контейнер для всего приложения */
 body {
-    /* Шрифт — системный для лучшей производительности на мобилках */
     font-family: system-ui, -apple-system, 'Segoe UI', 'Inter', sans-serif;
-    
-    /* Цвета по умолчанию (светлая тема) */
     background: var(--bg-light);
     color: #1a2634;
-    
-    /* Плавный переход между темами */
     transition: background 0.2s, color 0.2s;
-    
-    /* Отступы: сверху 20px, по бокам 16px, снизу 8px */
     padding: 20px 16px 8px;
-
     padding-top: env(safe-area-inset-top, 20px);
-    
-    /* Минимальная высота на весь экран */
     min-height: 100vh;
-    
-    /* Ещё раз запрещаем горизонтальный скролл */
     overflow-x: hidden;
     width: 100%;
-    
-    /* Разрешаем только вертикальную прокрутку */
     touch-action: pan-y;
 }
 
-/* ===== 2. CSS ПЕРЕМЕННЫЕ (токены дизайна) ===== */
-/* Используем :root — глобальные переменные, доступные везде */
 :root {
-    /* Цвета фона */
-    --bg-light: #f2f5f9;        /* Светлый фон — мягкий серо-голубой */
-    --bg-dark: #0a0f1c;         /* Тёмный фон — глубокий тёмно-синий */
-    
-    /* Цвета карточек */
-    --card-light: #ffffff;       /* Карточка на светлой теме — белая */
-    --card-dark: #16202e;        /* Карточка на тёмной теме — тёмно-синяя с оттенком */
-    
-    /* Цвета статусов слотов */
-    --green-available: #2ecc71;  /* Зелёный — слот свободен (2 места) */
-    --rose-booked: #f5a3b0;      /* Розовый — слот полностью занят */
-    
-    /* Дизайн-токены */
-    --border-radius-card: 28px;  /* Скругление углов карточек */
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.05); /* Лёгкая тень */
+    --bg-light: #f2f5f9;
+    --bg-dark: #0a0f1c;
+    --card-light: #ffffff;
+    --card-dark: #16202e;
+    --green-available: #2ecc71;
+    --rose-booked: #f5a3b0;
+    --border-radius-card: 28px;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
 }
 
-/* ===== 3. ТЁМНАЯ ТЕМА — ПЕРЕОПРЕДЕЛЕНИЕ ПЕРЕМЕННЫХ ===== */
-/* Когда у body есть класс .dark — применяем тёмную тему */
 body.dark {
     background: var(--bg-dark);
     color: #eef2ff;
 }
 
-/* Тёмная тема для карточек слотов */
 body.dark .card-slot {
     background: var(--card-dark);
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
 }
 
-/* Тёмная тема для бейджей игроков */
 body.dark .player-badge {
     background: #1e2a3a;
     color: #cbd5e6;
 }
 
-/* Тёмная тема для админ-панели — полупрозрачная с блюром */
 body.dark .admin-panel {
     background: #111a27cc;
     backdrop-filter: blur(12px);
 }
 
-/* Тёмная тема для тегов дней недели */
 body.dark .day-tag {
     background: #253341;
 }
 
-/* Тёмная тема для секции "Мои записи" */
-body.dark .my-bookings-section {
-    background: rgba(10, 20, 30, 0.7);
-}
-
-/* Тёмная тема для мини-карточек записей */
-body.dark .booking-item-mini {
-    background: #0f172a;
-}
-
-/* Тёмная тема для форм (select, input) */
 body.dark select, body.dark input {
     background: #1f2a3c;
     border-color: #3f4a60;
     color: white;
 }
 
-/* Тёмная тема для кнопок */
 body.dark .btn-icon {
     background: #243449;
     color: white;
 }
 
-/* Тёмная тема для градиента заголовка */
 body.dark .title-section h1 {
     background: linear-gradient(135deg, #6fbf4c, #d4ffb0);
     background-clip: text;
     -webkit-background-clip: text;
 }
 
-/* ===== 4. ШАПКА ПРИЛОЖЕНИЯ (app-header) ===== */
-/* Контейнер для заголовка и кнопок управления */
 .app-header {
-    display: flex;               /* Гибкий контейнер */
-    justify-content: space-between; /* Заголовок слева, кнопки справа */
-    align-items: baseline;      /* Выравнивание по базовой линии */
-    flex-wrap: wrap;            /* На маленьких экранах элементы переносятся */
-    gap: 12px;                  /* Расстояние между элементами при переносе */
-    margin-bottom: 28px;        /* Отступ снизу */
-    width: 100%;                /* На всю ширину */
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 28px;
+    width: 100%;
 }
 
-/* Блок с заголовком и подзаголовком */
 .title-section h1 {
-    font-size: 1.8rem;          /* Крупный размер шрифта */
-    font-weight: 700;           /* Жирное начертание */
-    letter-spacing: -0.3px;     /* Чуть уменьшаем межбуквенное расстояние */
-    
-    /* Градиентный текст — эффектный, но аккуратный */
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
     background: linear-gradient(135deg, #2c7a47, #0f2b1f);
     background-clip: text;
     -webkit-background-clip: text;
-    color: transparent;         /* Делаем фон видимым вместо цвета текста */
+    color: transparent;
 }
 
-/* Подзаголовок — мелкий, полупрозрачный */
 .title-section p {
     font-size: 0.8rem;
     opacity: 0.7;
     margin-top: 4px;
 }
 
-/* Контейнер с кнопками управления (Тема, Настройки, Мои записи) */
 .controls {
     display: flex;
     gap: 12px;
 }
 
-/* Стиль всех кнопок с иконками/текстом */
 .btn-icon {
-    background: #ffffffcc;      /* Белый с прозрачностью */
-    backdrop-filter: blur(4px); /* Размытие фона под кнопкой */
+    background: #ffffffcc;
+    backdrop-filter: blur(4px);
     border: none;
-    border-radius: 60px;        /* Сильно скруглённые углы (таблетка) */
+    border-radius: 60px;
     padding: 8px 20px;
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
     transition: 0.1s;
     box-shadow: var(--shadow);
-    
-    /* Мобильная оптимизация — минимальный размер для тапа */
     min-height: 44px;
 }
 
-/* Эффект нажатия — легкое сжатие */
 .btn-icon:active {
     transform: scale(0.96);
 }
 
-/* ===== 5. АДМИН-ПАНЕЛЬ ===== */
-/* По умолчанию скрыта, появляется при добавлении класса .open */
+/* Активное состояние кнопки */
+.btn-icon.active {
+    background: #10b981;
+    color: white;
+    box-shadow: 0 0 0 2px #10b981, 0 0 0 4px rgba(16, 185, 129, 0.3);
+}
+
+body.dark .btn-icon.active {
+    background: #059669;
+    box-shadow: 0 0 0 2px #059669, 0 0 0 4px rgba(5, 150, 105, 0.3);
+}
+
+/* Стиль для счётчика на кнопке */
+#bookingsCountBadge {
+    background: white;
+    color: #8b5cf6;
+    border-radius: 20px;
+    padding: 0px 8px;
+    margin-left: 6px;
+    font-size: 0.7rem;
+}
+
+body.dark #bookingsCountBadge {
+    background: #1f2a3c;
+    color: #a78bfa;
+}
+
 .admin-panel {
     background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(12px);
     border-radius: 38px;
     padding: 18px 20px;
     margin-bottom: 26px;
-    display: none;              /* Скрыта по умолчанию */
+    display: none;
     flex-direction: column;
     gap: 18px;
     width: 100%;
 }
 
-/* Когда админ-панель открыта — показываем как flex-контейнер */
 .admin-panel.open {
     display: flex;
 }
 
-/* Ряд в админ-панели — гибкая строка с элементами */
 .admin-row {
     display: flex;
     flex-wrap: wrap;
@@ -217,24 +180,21 @@ body.dark .title-section h1 {
     justify-content: space-between;
 }
 
-/* Метка (label) в админ-панели */
 .admin-label {
     font-weight: 600;
     font-size: 0.8rem;
     min-width: 100px;
 }
 
-/* Стили для полей ввода и выпадающих списков */
 select, input {
     background: white;
     border: 1px solid #cbd5e1;
     padding: 8px 14px;
     border-radius: 34px;
     font-size: 0.8rem;
-    min-height: 44px;          /* Для удобства тапа на мобилках */
+    min-height: 44px;
 }
 
-/* Контейнер для переключателей дней недели */
 .day-toggles {
     display: flex;
     flex-wrap: wrap;
@@ -242,7 +202,6 @@ select, input {
     margin-top: 6px;
 }
 
-/* Отдельный тег дня — маленький блок с чекбоксом и временем */
 .day-tag {
     background: #eef2fa;
     border-radius: 40px;
@@ -254,74 +213,19 @@ select, input {
     flex-wrap: wrap;
 }
 
-/* ===== 6. СЕКЦИЯ "МОИ ЗАПИСИ" ===== */
-/* Плавающий блок вверху, показывает текущие бронирования пользователя */
-.my-bookings-section {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(8px);
-    border-radius: 32px;
-    padding: 18px;
-    margin-bottom: 24px;
-    width: 100%;
-    transition: all 0.3s ease;  /* Плавное появление/исчезновение */
-    overflow: hidden;
-}
-
-/* Класс .hidden — скрывает блок "Мои записи" без отображения */
-.my-bookings-section.hidden {
-    display: none !important;
-}
-
-/* Карточка отдельной записи в списке "Мои записи" */
-.booking-item-mini {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.03);
-    padding: 12px 14px;
-    border-radius: 40px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* Кнопка отмены записи — красная, заметная */
-.cancel-mini {
-    background: #e53e3e;
-    border: none;
-    border-radius: 40px;
-    padding: 8px 20px;
-    color: white;
-    font-weight: 600;
-    font-size: 0.8rem;
-    cursor: pointer;
-    
-    /* Мобильные требования: минимум 44x44 пикселя */
-    min-height: 44px;
-    min-width: 100px;
-}
-
-.cancel-mini:active {
-    transform: scale(0.96);
-}
-
-/* ===== 7. СПИСОК ВСЕХ СЛОТОВ (КАРТОЧКИ) ===== */
 .slots-list {
     display: flex;
-    flex-direction: column;   /* Вертикальное расположение карточек */
-    gap: 16px;                /* Расстояние между карточками */
+    flex-direction: column;
+    gap: 16px;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;       /* Запрещаем горизонтальную прокрутку */
+    overflow-x: hidden;
     margin-bottom: 20px;
-    
-    /* Разрешаем только вертикальные жесты */
     touch-action: pan-y;
 }
 
-/* ===== 8. КАРТОЧКА СЛОТА (ОСНОВНОЙ ЭЛЕМЕНТ) ===== */
-/* Карточка занимает 100% ширины, имеет левую цветную границу */
 .card-slot {
+    position: relative;
     background: var(--card-light);
     border-radius: var(--border-radius-card);
     padding: 18px 20px;
@@ -331,55 +235,52 @@ select, input {
     flex-wrap: wrap;
     gap: 14px;
     box-shadow: var(--shadow);
-    cursor: pointer;           /* Указываем, что элемент кликабельный */
-    border-left: 8px solid;   /* Толстая левая граница — цвет зависит от статуса */
+    cursor: pointer;
+    border-left: 8px solid;
     min-height: 130px;
     width: 100%;
     transition: 0.1s;
 }
 
-/* Эффект нажатия на карточку */
 .card-slot:active {
     transform: scale(0.99);
 }
 
-/* СТАТУС: СВОБОДНО (available) — зелёная граница */
 .card-slot.available {
     border-left-color: var(--green-available);
     background: #ffffff;
 }
+
 body.dark .card-slot.available {
     background: #16202e;
 }
 
-/* СТАТУС: ЧАСТИЧНО ЗАНЯТО (partial) — оранжевая граница (1 игрок из 2) */
 .card-slot.partial {
     border-left-color: #f39c12;
     background: #fff9ef;
 }
+
 body.dark .card-slot.partial {
     background: #1e2a2f;
     border-left-color: #e67e22;
 }
 
-/* СТАТУС: ПОЛНОСТЬЮ ЗАНЯТО (full) — розовая граница */
 .card-slot.full {
     border-left-color: var(--rose-booked);
     background: #fff2f4;
 }
+
 body.dark .card-slot.full {
     background: #2c1b22;
     border-left-color: #e46f8a;
 }
 
-/* Блок с временем слота (часы крупно) */
 .time-block {
     display: flex;
     flex-direction: column;
     min-width: 110px;
 }
 
-/* Крупное отображение времени начала и конца */
 .hour-large {
     font-size: 1.8rem;
     font-weight: 800;
@@ -387,7 +288,6 @@ body.dark .card-slot.full {
     line-height: 1.1;
 }
 
-/* Маленькая дата под временем */
 .date-sm {
     font-size: 0.7rem;
     opacity: 0.8;
@@ -396,7 +296,6 @@ body.dark .card-slot.full {
     word-break: keep-all;
 }
 
-/* Блок с информацией об игроках и статусом */
 .players-info {
     display: flex;
     gap: 12px;
@@ -404,7 +303,6 @@ body.dark .card-slot.full {
     flex-wrap: wrap;
 }
 
-/* Бейдж с количеством игроков */
 .player-badge {
     background: #f0f3f9;
     border-radius: 60px;
@@ -412,11 +310,11 @@ body.dark .card-slot.full {
     font-size: 0.8rem;
     font-weight: 500;
 }
+
 body.dark .player-badge {
     background: #1f2c3c;
 }
 
-/* Чип со статусом (текстовое описание) */
 .status-chip {
     padding: 6px 15px;
     border-radius: 60px;
@@ -425,22 +323,21 @@ body.dark .player-badge {
     background: #e9ecef;
 }
 
-/* Цвет чипа для каждого статуса */
 .card-slot.available .status-chip {
     background: #d5f5e3;
     color: #116530;
 }
+
 .card-slot.partial .status-chip {
     background: #fee2b5;
     color: #9c4221;
 }
+
 .card-slot.full .status-chip {
     background: #ffe0e7;
     color: #b91c1c;
 }
 
-/* ===== 9. TOAST-УВЕДОМЛЕНИЯ ===== */
-/* Всплывающие уведомления снизу экрана */
 .toast {
     position: fixed;
     bottom: 28px;
@@ -451,56 +348,35 @@ body.dark .player-badge {
     padding: 12px 24px;
     border-radius: 60px;
     font-size: 0.85rem;
-    z-index: 1200;             /* Поверх всего */
-    opacity: 0;                /* По умолчанию невидим */
+    z-index: 1200;
+    opacity: 0;
     transition: opacity 0.2s;
-    pointer-events: none;      /* Чтобы не мешать кликам */
+    pointer-events: none;
     white-space: nowrap;
 }
 
-/* ===== 10. МОБИЛЬНАЯ АДАПТАЦИЯ (до 550px) ===== */
 @media (max-width: 550px) {
-    /* Уменьшаем отступы на маленьких экранах */
     body {
         padding: 14px;
     }
-    
-    /* Улучшаем обработку жестов на карточках */
     .card-slot {
         touch-action: pan-y pinch-zoom;
     }
-    
-    /* На мобилках блок с игроками и статусом занимает всю ширину */
     .players-info {
         width: 100%;
         justify-content: space-between;
     }
-    
-    /* Чуть уменьшаем шрифт времени на телефонах */
     .hour-large {
         font-size: 1.5rem;
     }
-    
-    /* Тосты на мобилках могут быть многострочными */
     .toast {
         white-space: normal;
         text-align: center;
         max-width: 85%;
     }
-    
-    /* Компактнее кнопка отмены */
-    .cancel-mini {
-        min-width: 80px;
-        padding: 6px 14px;
-    }
 }
 
-/* ===== 11. КНОПКА ОТМЕНЫ В КАРТОЧКЕ (КРАСНЫЙ КРЕСТИК) ===== */
-.card-slot {
-    position: relative;  /* Чтобы кнопка позиционировалась относительно карточки */
-}
-
-/* Кнопка отмены — красный крестик в правом верхнем углу */
+/* Кнопка отмены в карточке */
 .cancel-slot-btn {
     position: absolute;
     top: 12px;
@@ -519,26 +395,15 @@ body.dark .player-badge {
     justify-content: center;
     transition: transform 0.1s, background 0.1s;
     z-index: 10;
-    
-    /* Мобильная оптимизация */
     min-width: 44px;
     min-height: 44px;
-}
-
-.cancel-slot-btn:hover {
-    background: #c53030;
 }
 
 .cancel-slot-btn:active {
     transform: scale(0.92);
 }
 
-/* Тёмная тема для кнопки отмены */
 body.dark .cancel-slot-btn {
     background: #dc2626;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-body.dark .cancel-slot-btn:active {
-    background: #b91c1c;
 }

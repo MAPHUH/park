@@ -1,13 +1,11 @@
-
 /* ==========================================================================
-   ТЕННИС КОРТ — ОСНОВНАЯ ЛОГИКА (script.js)
-   Версия: 2.0 — с фильтром "Мои записи" и кнопкой отмены в карточке
+   ТЕННИС КОРТ — ПОЛНАЯ ВЕРСИЯ
+   WebSocket + вибрация + фильтр "Моя регистрация" + прозрачный статус-бар
    ========================================================================== */
 
-// ===== 1. ЗАПУСК ПРИЛОЖЕНИЯ =====
 document.addEventListener('DOMContentLoaded', () => {
     
-    // ===== 2. КОНСТАНТЫ И ДАННЫЕ =====
+    // ===== КОНСТАНТЫ =====
     const daysOfWeekFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
     const monthNamesGenitive = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
     
@@ -21,21 +19,19 @@ document.addEventListener('DOMContentLoaded', () => {
         5: { active: true,  greenStart: "09:00", greenEnd: "20:00" },
         6: { active: false, greenStart: "12:00", greenEnd: "16:00" }
     };
+    // Массив бронирований
+    window.bookings = window.bookings || [];
     
-    // Массив бронирований (каждый пользователь — это объект с уникальным ID)
-    let bookings = [];
-
+    // WebSocket менеджер
     let wsManager = null;
     // Настройки сетки
     let stepMinutes = 60;
     let defaultDuration = 60;
     
-    // ===== НОВОЕ: СОСТОЯНИЕ ФИЛЬТРА =====
-    // filterMode = 'all' → показываем все слоты
-    // filterMode = 'my'  → показываем только слоты, где есть запись текущего пользователя
-    let filterMode = 'all';  // 'all' или 'my'
+    // Состояние фильтра
+    let filterMode = 'all';
     
-    // ===== АУТЕНТИФИКАЦИЯ: ГЕНЕРАЦИЯ ID ПОЛЬЗОВАТЕЛЯ =====
+    // ===== АУТЕНТИФИКАЦИЯ =====
     let currentUserId = localStorage.getItem('tennis_user_id');
     let currentUserName = localStorage.getItem('tennis_user_name');
     
@@ -51,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('👤 Текущий пользователь:', currentUserId, currentUserName);
     
-    // ===== 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+    // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
     function timeToMinutes(timeStr) {
         let [h, m] = timeStr.split(':').map(Number);
         return h * 60 + (m || 0);
@@ -100,16 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return (minuteOfDay >= startMin && minuteOfDay < endMin);
     }
     
-    // ===== 4. НОВАЯ ФУНКЦИЯ: ПРОВЕРКА, ЗАПИСАН ЛИ ПОЛЬЗОВАТЕЛЬ НА СЛОТ =====
-    /**
-     * Проверяет, есть ли у текущего пользователя бронирование на конкретный слот
-     * @param {number} dayIndex - номер дня недели
-     * @param {string} dateStr - дата в формате YYYY-MM-DD
-     * @param {number} startMin - время начала в минутах
-     * @returns {object|null} - объект бронирования или null
-     */
     function getUserBookingForSlot(dayIndex, dateStr, startMin) {
-        return bookings.find(b => 
+        return window.bookings.find(b => 
             b.userId === currentUserId &&
             b.dayIndex === dayIndex && 
             b.dateStr === dateStr && 
@@ -117,26 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
     
-    /**
-     * Проверяет, может ли пользователь записаться на слот
-     * @param {number} dayIndex - номер дня недели
-     * @param {string} dateStr - дата в формате YYYY-MM-DD
-     * @param {number} startMin - время начала в минутах
-     * @returns {boolean} - true если может записаться
-     */
-    function canUserBook(dayIndex, dateStr, startMin) {
-        // Нельзя записаться если уже записан
-        const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
-        if (existingUserBooking) return false;
-        
-        // Нельзя записаться если слот уже заполнен (2 игрока)
-        const slotBookings = bookings.filter(b => 
-            b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin
-        );
-        return slotBookings.length < 2;
-    }
-    
-    // ===== 5. ГЕНЕРАЦИЯ СЛОТОВ (С УЧЁТОМ ЗАПИСЕЙ ПОЛЬЗОВАТЕЛЯ) =====
+    // ===== ГЕНЕРАЦИЯ СЛОТОВ =====
     function getSlotsForDay(dayObj) {
         let slots = [];
         let totalMinutes = 24 * 60;
@@ -148,8 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isInGreenZone(dayObj.dayIndex, startMin)) continue;
             if (endMin > totalMinutes) continue;
             
-            // Получаем все бронирования на этот слот
-            let slotBookings = bookings.filter(b => 
+            let slotBookings = window.bookings.filter(b => 
                 b.dayIndex === dayObj.dayIndex && 
                 b.dateStr === dayObj.dateStr && 
                 b.startMin === startMin
@@ -169,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 endTime: minutesToTime(endMin),
                 status: status,
                 bookedCount: bookedCount,
-                isUserBooked: isUserBooked  // ← НОВОЕ: флаг, записан ли пользователь
+                isUserBooked: isUserBooked
             });
         }
         return slots;
@@ -193,23 +161,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return result;
     }
     
-    // ===== НОВАЯ ФУНКЦИЯ: ФИЛЬТРАЦИЯ СЛОТОВ =====
     function getFilteredSlots() {
         const allSlots = getAllFlatSlots();
-        
         if (filterMode === 'all') {
             return allSlots;
-        } else { // filterMode === 'my'
+        } else {
             return allSlots.filter(slot => slot.isUserBooked === true);
         }
-    }
-    
-    // ===== 6. TOAST УВЕДОМЛЕНИЯ =====
-    function showToast(msg, duration = 1800) {
-        let toast = document.getElementById('toastMsg');
-        toast.innerText = msg;
-        toast.style.opacity = '1';
-        setTimeout(() => { toast.style.opacity = '0'; }, duration);
     }
     
     // ===== ВИБРАЦИЯ =====
@@ -219,39 +177,114 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // ===== 7. ОТМЕНА БРОНИРОВАНИЯ (НОВАЯ ВЕРСИЯ) =====
+    // ===== TOAST =====
+    function showToast(msg, duration = 1800) {
+        let toast = document.getElementById('toastMsg');
+        toast.innerText = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => { toast.style.opacity = '0'; }, duration);
+    }
+    
+    // ===== ОБНОВЛЕНИЕ СЧЁТЧИКА =====
+    function updateBookingsCount() {
+        const myBookings = window.bookings.filter(b => b.userId === currentUserId);
+        const count = myBookings.length;
+        
+        const myRegBtn = document.getElementById('myRegistrationsBtn');
+        if (myRegBtn) {
+            const badge = myRegBtn.querySelector('#bookingsCountBadge');
+            if (badge) {
+                badge.textContent = count;
+            }
+        }
+    }
+        // ===== ОБРАБОТКА СООБЩЕНИЙ ОТ СЕРВЕРА =====
+    function handleWebSocketMessage(data) {
+        console.log('📨 Получено от сервера:', data);
+        
+        if (data.type === 'sync') {
+            const newBookings = [];
+            for (const slot of data.payload.slots) {
+                for (const userId of slot.bookedUsers) {
+                    newBookings.push({
+                        id: `${slot.slotId}_${userId}`,
+                        userId: userId,
+                        dayIndex: new Date(slot.dateStr).getDay(),
+                        dateStr: slot.dateStr,
+                        startMin: slot.startMin,
+                        endMin: slot.endMin,
+                        startTime: minutesToTime(slot.startMin),
+                        endTime: minutesToTime(slot.endMin),
+                    });
+                }
+            }
+            window.bookings = newBookings;
+            renderCards();
+            updateBookingsCount();
+            showToast('🔄 Данные синхронизированы', 1000);
+            
+        } else if (data.type === 'update') {
+            updateSlotFromServer(data.payload);
+            renderCards();
+            updateBookingsCount();
+            
+        } else if (data.type === 'error') {
+            vibrate(200);
+            showToast('❌ ' + (data.message || 'Ошибка сервера'), 2000);
+            if (wsManager && wsManager.isConnected) {
+                wsManager.send({ type: 'get_sync' });
+            }
+        }
+    }
+    
+    function updateSlotFromServer(payload) {
+        console.log('🔄 updateSlotFromServer получил:', payload);
+        
+        window.bookings = window.bookings.filter(b => 
+            !(b.dateStr === payload.dateStr && b.startMin === payload.startMin)
+        );
+        
+        for (const userId of payload.bookedUsers) {
+            window.bookings.push({
+                id: `${payload.slotId}_${userId}`,
+                userId: userId,
+                dayIndex: new Date(payload.dateStr).getDay(),
+                dateStr: payload.dateStr,
+                startMin: payload.startMin,
+                endMin: payload.endMin,
+                startTime: minutesToTime(payload.startMin),
+                endTime: minutesToTime(payload.endMin),
+            });
+        }
+        
+        renderCards();
+        updateBookingsCount();
+    }
+    
+    // ===== ОТМЕНА ЗАПИСИ (БЕЗ ПОДТВЕРЖДЕНИЯ) =====
     function cancelBooking(dayIndex, dateStr, startMin) {
         const booking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (!booking) return false;
         
         const slotId = `${dateStr}_${startMin}`;
         
-        let week = getNext7Days();
-        let dayInfo = week.find(d => d.dateStr === dateStr);
-        let niceDate = dayInfo ? dayInfo.displayDate : dateStr;
+        // Оптимистичное удаление из UI
+        window.bookings = window.bookings.filter(b => b.id !== booking.id);
+        renderCards();
+        updateBookingsCount();
+        vibrate(200);
+        showToast("❌ Отмена отправлена", 1200);
         
-        if (confirm(`Отменить запись?\n📅 ${niceDate}\n⏰ ${minutesToTime(startMin)} — ${minutesToTime(startMin + stepMinutes)}`)) {
-            // Оптимистичное удаление из UI
-            bookings = bookings.filter(b => b.id !== booking.id);
-            renderCards();
-            updateBookingsCount();
-            vibrate(200);
-            showToast("❌ Отмена отправлена", 1200);
-            
-            // Отправляем на сервер
-            if (wsManager) {
-                wsManager.cancelSlot(slotId, currentUserId);
-            }
-            return true;
+        if (wsManager && wsManager.isConnected) {
+            wsManager.cancelSlot(slotId, currentUserId);
         }
-        return false;
+        return true;
     }
     
-    // ===== 8. СОЗДАНИЕ БРОНИРОВАНИЯ (С ЗАЩИТОЙ ОТ ДУБЛЕЙ) =====
+    // ===== ЗАПИСЬ НА СЛОТ (БЕЗ ПОДТВЕРЖДЕНИЯ) =====
     function handleBooking(dayIndex, dateStr, startMin, endMin) {
         const slotId = `${dateStr}_${startMin}`;
         
-        // Проверяем, не записан ли уже пользователь (по локальным данным)
         const existingUserBooking = getUserBookingForSlot(dayIndex, dateStr, startMin);
         if (existingUserBooking) {
             vibrate(200);
@@ -259,8 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Проверяем, есть ли свободные места (по локальным данным)
-        let existingBookings = bookings.filter(b => 
+        let existingBookings = window.bookings.filter(b => 
             b.dayIndex === dayIndex && b.dateStr === dateStr && b.startMin === startMin
         );
         
@@ -272,71 +304,42 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let startTime = minutesToTime(startMin);
         let endTime = minutesToTime(endMin);
-        let week = getNext7Days();
-        let dayObj = week.find(d => d.dateStr === dateStr);
-        let niceDate = dayObj ? dayObj.displayDate : dateStr;
         
-        let confirmMsg = `🎾 Запись на теннис\n📅 ${niceDate}\n⏰ ${startTime} — ${endTime}\nМест осталось: ${2 - existingBookings.length}\nЗаписаться?`;
+        // Оптимистичное обновление UI
+        const newId = Date.now() + Math.random() * 10000;
+        window.bookings.push({
+            id: newId,
+            userId: currentUserId,
+            dayIndex: dayIndex,
+            dateStr: dateStr,
+            startMin: startMin,
+            endMin: endMin,
+            startTime: startTime,
+            endTime: endTime,
+        });
+        renderCards();
+        updateBookingsCount();
+        vibrate(50);
+        showToast(`✅ Запись отправлена`, 1300);
         
-        if (confirm(confirmMsg)) {
-            // Оптимистичное обновление UI
-            const newId = Date.now() + Math.random() * 10000;
-            bookings.push({
-                id: newId,
-                userId: currentUserId,
-                dayIndex: dayIndex,
-                dateStr: dateStr,
-                startMin: startMin,
-                endMin: endMin,
-                startTime: startTime,
-                endTime: endTime,
-            });
-            renderCards();
-            updateBookingsCount();
-            vibrate(50);
-            showToast(`✅ Запись отправлена`, 1300);
-            
-            // Отправляем на сервер
-            if (wsManager) {
-                wsManager.bookSlot(slotId, currentUserId);
-            } else {
-                console.warn('WebSocket не инициализирован');
-            }
+        if (wsManager && wsManager.isConnected) {
+            wsManager.bookSlot(slotId, currentUserId);
+        } else {
+            console.warn('WebSocket не подключён');
         }
     }
     
-    // ===== 9. ОБНОВЛЕНИЕ СЧЁТЧИКА НА КНОПКЕ =====
-    function updateBookingsCount() {
-        const myBookings = bookings.filter(b => b.userId === currentUserId);
-        const count = myBookings.length;
-        const badge = document.getElementById('bookingsCountBadge');
-        if (badge) {
-            badge.textContent = count;
-        }
-        
-        // Обновляем текст кнопки в зависимости от режима фильтра
-        const toggleBtn = document.getElementById('myBookingsToggleBtn');
-        if (toggleBtn) {
-            if (filterMode === 'all') {
-                toggleBtn.innerHTML = `📋 Мои записи <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">${count}</span>`;
-            } else {
-                toggleBtn.innerHTML = `🌍 Все записи <span id="bookingsCountBadge" style="background:white; color:#8b5cf6; border-radius:20px; padding:0px 8px; margin-left:6px; font-size:0.7rem;">${count}</span>`;
-            }
-        }
-    }
-    
-    // ===== 10. ОТРИСОВКА КАРТОЧЕК (С КНОПКОЙ ОТМЕНЫ В УГЛУ) =====
+    // ===== ОТРИСОВКА КАРТОЧЕК =====
     function renderCards() {
         const container = document.getElementById('slotsContainer');
         if (!container) return;
         
         const slots = getFilteredSlots();
         
-        // Проверка на пустой результат при фильтрации
         if (filterMode === 'my' && slots.length === 0) {
             vibrate(200);
             showToast('📭 У вас нет активных записей', 1500);
-            container.innerHTML = `<div style="text-align:center; padding:40px;">✨ У вас нет записей. Нажмите "Все записи" чтобы посмотреть слоты.</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:40px;">✨ У вас нет записей. Нажмите "Все слоты" чтобы посмотреть слоты.</div>`;
             return;
         }
         
@@ -351,14 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let statusText = '';
             let leftIcon = '';
             
-            // Определяем статус и текст
             if (slot.status === 'available') {
                 statusClass = 'available';
                 statusText = '🟢 Свободно (2 места)';
                 leftIcon = '🎾';
             } else if (slot.status === 'partial') {
                 statusClass = 'partial';
-                // ===== НОВОЕ: меняем текст если пользователь записан =====
                 if (slot.isUserBooked) {
                     statusText = '🎾 Вы записаны · 1/2 игрока';
                 } else {
@@ -375,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 leftIcon = '⛔';
             }
             
-            // ===== НОВОЕ: генерируем кнопку отмены (красный крестик в правом верхнем углу) =====
             const cancelButtonHtml = slot.isUserBooked 
                 ? `<button class="cancel-slot-btn" data-cancel="true" data-dayidx="${slot.dayIndex}" data-datestr="${slot.dateStr}" data-startmin="${slot.startMin}">✖</button>` 
                 : '';
@@ -404,9 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         container.innerHTML = html;
         
-        // Вешаем обработчики
         document.querySelectorAll('.card-slot').forEach(card => {
-            // Определяем, есть ли у карточки data-user-booked
             const isUserBooked = card.dataset.userBooked === 'true';
             const status = card.dataset.status;
             const dayIdx = parseInt(card.dataset.dayidx);
@@ -414,16 +412,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const startMin = parseInt(card.dataset.startmin);
             const endMin = parseInt(card.dataset.endmin);
             
-            // Обработчик для основной области карточки (запись)
             card.addEventListener('click', (e) => {
                 e.stopPropagation();
                 
-                // Если кликнули на кнопку отмены — ничего не делаем (она обработает сама)
                 if (e.target.classList && e.target.classList.contains('cancel-slot-btn')) {
                     return;
                 }
                 
-                // Если пользователь уже записан на этот слот — нельзя записаться снова
                 if (isUserBooked) {
                     showToast('❌ Вы уже записаны на этот слот', 1200);
                     return;
@@ -439,7 +434,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        // Обработчики для кнопок отмены (красные крестики)
         document.querySelectorAll('.cancel-slot-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -451,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ===== 11. АДМИН-ПАНЕЛЬ =====
+    // ===== АДМИН-ПАНЕЛЬ =====
     function buildDayTogglesUI() {
         const container = document.getElementById('dayTogglesContainer');
         if (!container) return;
@@ -499,12 +493,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ===== 12. ТЕМА =====
-        function initTheme() {
+    // ===== ТЕМА =====
+    function initTheme() {
         const savedTheme = localStorage.getItem('tennis_theme');
         const themeBtn = document.getElementById('themeToggleBtn');
         
-        // Функция для обновления цвета статус-бара
         function updateThemeColor() {
             const isDark = document.body.classList.contains('dark');
             const themeColor = isDark ? '#0a0f1c' : '#f2f5f9';
@@ -522,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('light');
             themeBtn.innerText = '🌙 Темная';
         }
-        updateThemeColor(); // Устанавливаем начальный цвет
+        updateThemeColor();
         
         themeBtn.addEventListener('click', () => {
             if (document.body.classList.contains('light')) {
@@ -536,71 +529,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('tennis_theme', 'light');
                 themeBtn.innerText = '🌙 Темная';
             }
-            updateThemeColor(); // Обновляем цвет после переключения
+            updateThemeColor();
         });
     }
+    // ===== ОБНОВЛЕНИЕ АКТИВНОГО СОСТОЯНИЯ КНОПОК =====
+    function updateActiveButtonState() {
+        const myBtn = document.getElementById('myRegistrationsBtn');
+        const allBtn = document.getElementById('allSlotsBtn');
+        
+        if (myBtn && allBtn) {
+            if (filterMode === 'my') {
+                myBtn.classList.add('active');
+                allBtn.classList.remove('active');
+            } else {
+                myBtn.classList.remove('active');
+                allBtn.classList.add('active');
+            }
+        }
+    }
     
-    // ===== 13. ИНИЦИАЛИЗАЦИЯ =====
-        function init() {
-        // Функция обработки сообщений от сервера
-        function handleWebSocketMessage(data) {
-            console.log('📨 Получено сообщение от сервера:', data);
-            
-            if (data.type === 'sync') {
-                bookings = convertServerSlotsToBookings(data.payload.slots);
-                renderCards();
-                updateBookingsCount();
-                showToast('🔄 Данные синхронизированы', 1000);
-            } else if (data.type === 'update') {
-                updateSlotFromServer(data.payload);
-                renderCards();
-                updateBookingsCount();
-            } else if (data.type === 'error') {
-                vibrate(200);
-                showToast('❌ ' + (data.message || 'Ошибка сервера'), 2000);
-                if (wsManager) wsManager.send({ type: 'get_sync' });
-            }
-        }
-        
-        function convertServerSlotsToBookings(serverSlots) {
-            const newBookings = [];
-            for (const slot of serverSlots) {
-                for (const userId of slot.bookedUsers) {
-                    newBookings.push({
-                        id: `${slot.slotId}_${userId}`,
-                        userId: userId,
-                        dayIndex: slot.dayIndex,
-                        dateStr: slot.dateStr,
-                        startMin: slot.startMin,
-                        endMin: slot.endMin,
-                        startTime: minutesToTime(slot.startMin),
-                        endTime: minutesToTime(slot.endMin),
-                    });
-                }
-            }
-            return newBookings;
-        }
-        
-        function updateSlotFromServer(payload) {
-            bookings = bookings.filter(b => 
-                !(b.dayIndex === payload.dayIndex && 
-                  b.dateStr === payload.dateStr && 
-                  b.startMin === payload.startMin)
-            );
-            for (const userId of payload.bookedUsers) {
-                bookings.push({
-                    id: `${payload.slotId}_${userId}`,
-                    userId: userId,
-                    dayIndex: payload.dayIndex,
-                    dateStr: payload.dateStr,
-                    startMin: payload.startMin,
-                    endMin: payload.endMin,
-                    startTime: minutesToTime(payload.startMin),
-                    endTime: minutesToTime(payload.endMin),
-                });
-            }
-        }
-        
+    // ===== ИНИЦИАЛИЗАЦИЯ =====
+    function init() {
         buildDayTogglesUI();
         renderCards();
         updateBookingsCount();
@@ -628,30 +577,51 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBookingsCount();
             showToast("Календарь обновлён", 1000);
         });
-        
-        const myBookingsToggleBtn = document.getElementById('myBookingsToggleBtn');
-        if (myBookingsToggleBtn) {
-            myBookingsToggleBtn.addEventListener('click', () => {
-                if (filterMode === 'all') {
-                    const myBookingsCount = bookings.filter(b => b.userId === currentUserId).length;
-                    if (myBookingsCount === 0) {
-                        showToast('📭 У вас нет активных записей', 1500);
-                        return;
-                    }
-                    filterMode = 'my';
-                } else {
-                    filterMode = 'all';
+        // Кнопка "Моя регистрация"
+        const myRegistrationsBtn = document.getElementById('myRegistrationsBtn');
+        if (myRegistrationsBtn) {
+            myRegistrationsBtn.addEventListener('click', () => {
+                if (filterMode === 'my') {
+                    showToast('ℹ️ Вы уже в режиме фильтра', 1500);
+                    return;
                 }
+                
+                const myBookingsCount = window.bookings.filter(b => b.userId === currentUserId).length;
+                if (myBookingsCount === 0) {
+                    showToast('📭 У вас нет активных записей', 1500);
+                    return;
+                }
+                
+                filterMode = 'my';
+                updateActiveButtonState();
+                updateBookingsCount();
+                renderCards();
+            });
+        }
+        // Кнопка "Все слоты"
+        const allSlotsBtn = document.getElementById('allSlotsBtn');
+        if (allSlotsBtn) {
+            allSlotsBtn.addEventListener('click', () => {
+                if (filterMode === 'all') {
+                    showToast('ℹ️ Все слоты уже отображаются', 1500);
+                    return;
+                }
+                
+                filterMode = 'all';
+                updateActiveButtonState();
                 updateBookingsCount();
                 renderCards();
             });
         }
         
-        // ===== ПОДКЛЮЧЕНИЕ WEBSOCKET (В САМОМ КОНЦЕ) =====
+        // Установить начальное активное состояние
+        updateActiveButtonState();
+        
+        // ===== ПОДКЛЮЧЕНИЕ WEBSOCKET =====
         const WS_URL = 'ws://localhost:8080/ws';
         wsManager = new WebSocketManager(WS_URL, handleWebSocketMessage);
+        console.log('🔌 WebSocket менеджер создан');
     }
     
     init();
-    
-}); // Конец DOMContentLoaded
+});
