@@ -542,3 +542,31 @@ body.dark .cancel-slot-btn {
 body.dark .cancel-slot-btn:active {
     background: #b91c1c;
 }
+
+/* Активное состояние кнопки (подсветка) */
+.btn-icon.active {
+    background: #10b981;
+    color: white;
+    box-shadow: 0 0 0 2px #10b981, 0 0 0 4px rgba(16, 185, 129, 0.3);
+}
+
+body.dark .btn-icon.active {
+    background: #059669;
+    box-shadow: 0 0 0 2px #059669, 0 0 0 4px rgba(5, 150, 105, 0.3);
+}
+
+/* Стиль для счётчика на кнопке "Моя регистрация" */
+#bookingsCountBadge {
+    background: white;
+    color: #8b5cf6;
+    border-radius: 20px;
+    padding: 0px 8px;
+    margin-left: 6px;
+    font-size: 0.7rem;
+}
+
+/* Тёмная тема для счётчика */
+body.dark #bookingsCountBadge {
+    background: #1f2a3c;
+    color: #a78bfa;
+}
